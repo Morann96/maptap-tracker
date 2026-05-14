@@ -611,6 +611,13 @@ function hideMsg() {
   document.getElementById('submit-msg').className = 'msg';
 }
 
+// Convierte cualquier valor de fecha (ISO timestamp o string YYYY-MM-DD) a YYYY-MM-DD en zona horaria España
+function toFecha(val) {
+  const s = String(val);
+  if (!s.includes('T')) return s.slice(0, 10);
+  return new Date(s).toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+}
+
 // ─── READ SHEET ───────────────────────────────────────────
 async function readSheet() {
   if (previewMode) return [
@@ -630,7 +637,7 @@ async function readSheet() {
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error en el servidor');
   return json.data.map(row => ({
-    fecha:   String(row.fecha).slice(0, 10), // normaliza a YYYY-MM-DD por si llega como ISO timestamp
+    fecha:   toFecha(row.fecha),
     jugador: row.jugador,
     r1: Number(row.r1), r2: Number(row.r2), r3: Number(row.r3),
     r4: Number(row.r4), r5: Number(row.r5),

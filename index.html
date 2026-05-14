@@ -260,6 +260,9 @@
   /* HISTORY TABLE */
   .history { width: 100%; border-collapse: collapse; font-size: 13px; }
   .history th { color: var(--text3); font-weight: 500; text-align: left; padding: 6px 8px; border-bottom: 0.5px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .history th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  .history th.sortable:hover { color: var(--text2); }
+  .history th.sort-active { color: var(--accent); }
   .history td { padding: 10px 8px; border-bottom: 0.5px solid var(--border); color: var(--text2); }
   .history td:first-child { color: var(--text); font-weight: 500; }
   .history tr:last-child td { border-bottom: none; }
@@ -332,6 +335,7 @@
     data-size="large"
     data-locale="es">
   </div>
+  <button onclick="enterPreviewMode()" style="margin-top:1.5rem;background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;text-decoration:underline;">Ver demo sin login</button>
 </div>
 
 <div id="app-view" style="display:none; flex-direction:column; flex:1;">
@@ -383,16 +387,8 @@
       <div id="dashboard-content" style="display:none">
         <div class="metrics" id="metrics"></div>
         <div class="card">
-          <div class="card-title">Victorias</div>
-          <div class="bar-chart" id="wins-chart"></div>
-        </div>
-        <div class="card">
-          <div class="card-title">Puntuación media</div>
-          <div class="bar-chart" id="avg-chart"></div>
-        </div>
-        <div class="card">
-          <div class="card-title">Podio</div>
-          <ul class="ranking-list" id="ranking"></ul>
+          <div class="card-title">Estadísticas</div>
+          <table class="history" id="stats-table"></table>
         </div>
       </div>
     </div>
@@ -481,6 +477,18 @@ function onGoogleLogin(response) {
 
 function grantSheetsAccess() {
   if (tokenClient) tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+let previewMode = false;
+function enterPreviewMode() {
+  previewMode = true;
+  currentUser = { name: 'Demo', email: 'demo@demo.com', picture: null, given_name: 'Demo' };
+  currentPlayer = 'Moran';
+  accessToken = 'preview';
+  updateHeader();
+  document.getElementById('login-view').style.display = 'none';
+  document.getElementById('app-view').style.display = 'flex';
+  document.getElementById('submit-btn').disabled = true;
 }
 
 function resolvePlayer(name, email, givenName) {
@@ -632,6 +640,18 @@ async function waitForToken(timeoutMs = 8000) {
 }
 
 async function readSheet() {
+  if (previewMode) return [
+    {fecha:'2026-05-14',jugador:'Moran',  r1:99,r2:98,r3:100,r4:97,r5:99,score:988},
+    {fecha:'2026-05-14',jugador:'Muñi',   r1:100,r2:99,r3:99,r4:99,r5:98,score:995},
+    {fecha:'2026-05-14',jugador:'Mewis',  r1:95,r2:96,r3:97,r4:94,r5:96,score:960},
+    {fecha:'2026-05-14',jugador:'Gonzalo',r1:93,r2:95,r3:94,r4:92,r5:93,score:950},
+    {fecha:'2026-05-14',jugador:'Arias',  r1:98,r2:99,r3:100,r4:98,r5:98,score:993},
+    {fecha:'2026-05-13',jugador:'Moran',  r1:97,r2:96,r3:98,r4:95,r5:97,score:972},
+    {fecha:'2026-05-13',jugador:'Muñi',   r1:98,r2:97,r3:99,r4:96,r5:98,score:980},
+    {fecha:'2026-05-13',jugador:'Mewis',  r1:92,r2:93,r3:94,r4:91,r5:92,score:942},
+    {fecha:'2026-05-13',jugador:'Gonzalo',r1:90,r2:91,r3:93,r4:89,r5:91,score:930},
+    {fecha:'2026-05-13',jugador:'Arias',  r1:96,r2:97,r3:98,r4:95,r5:97,score:975},
+  ];
   await waitForToken();
   const res = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}`,
@@ -668,9 +688,7 @@ async function loadDashboard() {
     const data = await readSheet();
     const stats = computeStats(data);
     renderMetrics(stats, data);
-    renderBarChart('wins-chart', stats, 'wins', Math.max(...Object.values(stats).map(s => s.wins)));
-    renderBarChart('avg-chart', stats, 'avg', Math.max(...Object.values(stats).map(s => s.avg)), 900);
-    renderRanking(stats);
+    renderStatsTable(stats, data);
     dashboardLoaded = true;
   } catch(e) {
     console.error('loadDashboard error:', e);
@@ -717,7 +735,7 @@ function renderMetrics(stats, data) {
   const days = new Set(data.map(r => r.fecha)).size;
   const leader = Object.entries(stats).sort((a,b) => b[1].wins - a[1].wins)[0];
   const bestAvg = Object.entries(stats).sort((a,b) => b[1].avg - a[1].avg)[0];
-  const record = Math.max(...data.map(r => r.score), 0);
+  const recordEntry = data.length ? data.reduce((a, b) => a.score > b.score ? a : b) : null;
 
   document.getElementById('metrics').innerHTML = `
     <div class="metric">
@@ -736,49 +754,68 @@ function renderMetrics(stats, data) {
     </div>
     <div class="metric">
       <div class="metric-label">Record</div>
-      <div class="metric-value">${record}</div>
-      <div class="metric-sub">puntos</div>
+      <div class="metric-value">${recordEntry ? recordEntry.score : '—'}</div>
+      <div class="metric-sub">${recordEntry ? recordEntry.jugador : ''}</div>
     </div>
   `;
 }
 
-function renderBarChart(id, stats, key, max, minVal = 0) {
-  const sorted = Object.entries(stats).sort((a,b) => b[1][key] - a[1][key]);
-  const range = max - minVal || 1;
+let sortState = { key: 'wins', dir: -1 };
+let cachedStatsTable = null;
 
-  document.getElementById(id).innerHTML = sorted.map(([name, s]) => {
-    const val = s[key];
-    const pct = Math.round(((val - minVal) / range) * 100);
-    const color = PLAYER_COLORS[name]?.fg || '#4ade80';
-    return `
-      <div class="bar-row">
-        <div class="bar-name">${name}</div>
-        <div class="bar-track">
-          <div class="bar-fill" style="width:${pct}%;background:${color}"></div>
-        </div>
-        <div class="bar-val">${val}</div>
-      </div>`;
-  }).join('');
+function renderStatsTable(stats, data) {
+  cachedStatsTable = stats;
+  const cols = [
+    { key: 'name',  label: 'Jugador' },
+    { key: 'games', label: 'Games'   },
+    { key: 'avg',   label: 'Media'   },
+    { key: 'best',  label: 'Best'    },
+    { key: 'wins',  label: 'Wins'    },
+    { key: 'pct',   label: '%Wins'   },
+  ];
+
+  const rows = Object.entries(stats)
+    .filter(([, s]) => s.entries > 0)
+    .map(([name, s]) => ({
+      name,
+      games: s.entries,
+      avg:   s.avg,
+      best:  s.best,
+      wins:  s.wins,
+      pct:   Math.round(s.wins / s.entries * 100),
+    }));
+
+  const { key, dir } = sortState;
+  rows.sort((a, b) => key === 'name'
+    ? dir * a.name.localeCompare(b.name)
+    : dir * (a[key] - b[key]));
+
+  const thead = `<thead><tr>${cols.map(c => {
+    const active = c.key === sortState.key;
+    const arrow  = active ? (sortState.dir === -1 ? ' ▼' : ' ▲') : '';
+    return `<th class="sortable${active ? ' sort-active' : ''}" onclick="sortStatsTable('${c.key}')">${c.label}${arrow}</th>`;
+  }).join('')}</tr></thead>`;
+
+  const tbody = `<tbody>${rows.map(r => {
+    const fg = PLAYER_COLORS[r.name]?.fg || 'var(--text)';
+    return `<tr>
+      <td style="color:${fg}">${r.name}</td>
+      <td>${r.games}</td>
+      <td>${r.avg}</td>
+      <td>${r.best}</td>
+      <td>${r.wins}</td>
+      <td>${r.pct}%</td>
+    </tr>`;
+  }).join('')}</tbody>`;
+
+  document.getElementById('stats-table').innerHTML = thead + tbody;
 }
 
-function renderRanking(stats) {
-  const sorted = Object.entries(stats).sort((a,b) => b[1].wins - a[1].wins || b[1].avg - a[1].avg);
-  const medals = ['gold', 'silver', 'bronze'];
-
-  document.getElementById('ranking').innerHTML = sorted.map(([name, s], i) => {
-    const c = PLAYER_COLORS[name] || { bg: '#1a1a1a', fg: '#888' };
-    const initials = name.slice(0, 2).toUpperCase();
-    return `
-      <li class="ranking-item">
-        <div class="rank-num ${medals[i] || ''}">${i + 1}</div>
-        <div class="rank-avatar-circle" style="background:${c.bg};color:${c.fg}">${initials}</div>
-        <div class="rank-info">
-          <div class="rank-name">${name}</div>
-          <div class="rank-detail">${s.wins} victorias · mejor: ${s.best}</div>
-        </div>
-        <div class="rank-score">${s.avg}</div>
-      </li>`;
-  }).join('');
+function sortStatsTable(key) {
+  sortState = sortState.key === key
+    ? { key, dir: sortState.dir * -1 }
+    : { key, dir: key === 'name' ? 1 : -1 };
+  if (cachedStatsTable) renderStatsTable(cachedStatsTable);
 }
 
 // ─── HISTORY ─────────────────────────────────────────────

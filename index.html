@@ -62,15 +62,25 @@
     font-size: 13px;
     color: var(--text2);
   }
-  .user-avatar {
-    width: 26px; height: 26px; border-radius: 50%;
-    object-fit: cover;
+  .logout-btn { background:none; border:none; color:var(--text3); font-size:14px; cursor:pointer; padding:0 0 0 4px; line-height:1; }
+  .logout-btn:hover { color:var(--danger); }
+
+  /* PLAYER SELECTOR */
+  .player-grid { display:flex; gap:10px; margin-top:2rem; flex-wrap:wrap; justify-content:center; }
+  .player-card {
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    background:var(--bg2); border:0.5px solid var(--border);
+    border-radius:var(--radius); padding:1.1rem 1rem;
+    cursor:pointer; transition:all 0.15s; min-width:80px;
   }
-  .user-avatar-placeholder {
-    width: 26px; height: 26px; border-radius: 50%;
-    background: var(--bg2);
-    border: 0.5px solid var(--border2);
+  .player-card:hover { border-color:var(--pc,var(--accent)); transform:translateY(-2px); }
+  .player-initial {
+    width:44px; height:44px; border-radius:50%;
+    border:1.5px solid var(--pc,var(--accent)); color:var(--pc,var(--accent));
+    font-size:18px; font-weight:600;
+    display:flex; align-items:center; justify-content:center;
   }
+  .player-name-label { font-size:12px; color:var(--text2); }
 
   /* NAV */
   nav {
@@ -296,7 +306,7 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* NOT REGISTERED */
+  /* NOT REGISTERED - kept for backwards compat */
   .not-registered {
     background: rgba(251,191,36,0.08);
     border: 0.5px solid rgba(251,191,36,0.2);
@@ -323,7 +333,6 @@
     MapTap Tracker
   </div>
   <div class="user-pill" id="user-pill">
-    <div class="user-avatar-placeholder"></div>
     <span id="user-name-header">—</span>
   </div>
 </header>
@@ -331,12 +340,15 @@
 <div id="login-view">
   <div class="login-icon">🗺️</div>
   <div class="login-title">MapTap Tracker</div>
-  <div class="login-sub">Identifícate con tu cuenta de Google para enviar resultados y ver el ranking.</div>
-  <button onclick="loginWithGoogle()" class="google-signin-btn">
-    <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-    Iniciar sesión con Google
-  </button>
-  <button onclick="enterPreviewMode()" style="margin-top:1rem;background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;text-decoration:underline;">Ver demo sin login</button>
+  <div class="login-sub">¿Quién eres?</div>
+  <div class="player-grid">
+    <button class="player-card" onclick="selectPlayer('Moran')"   style="--pc:#4ade80"><div class="player-initial">M</div><div class="player-name-label">Moran</div></button>
+    <button class="player-card" onclick="selectPlayer('Gonzalo')" style="--pc:#60a5fa"><div class="player-initial">G</div><div class="player-name-label">Gonzalo</div></button>
+    <button class="player-card" onclick="selectPlayer('Mewis')"   style="--pc:#c084fc"><div class="player-initial">Me</div><div class="player-name-label">Mewis</div></button>
+    <button class="player-card" onclick="selectPlayer('Muñi')"    style="--pc:#fb923c"><div class="player-initial">Mu</div><div class="player-name-label">Muñi</div></button>
+    <button class="player-card" onclick="selectPlayer('Arias')"   style="--pc:#f472b6"><div class="player-initial">A</div><div class="player-name-label">Arias</div></button>
+  </div>
+  <button onclick="enterPreviewMode()" style="margin-top:2rem;background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;">Ver demo</button>
 </div>
 
 <div id="app-view" style="display:none; flex-direction:column; flex:1;">
@@ -349,10 +361,7 @@
 
     <!-- SUBMIT -->
     <div id="tab-submit" class="section active">
-      <div id="not-registered" class="not-registered" style="display:none">
-        Tu cuenta de Google no está registrada como jugador. Habla con Moran para que te añada.
-      </div>
-      <div class="card">
+<div class="card">
         <div class="card-title">Tu resultado de hoy</div>
         <textarea id="result-input"
           placeholder="www.maptap.gg May 14&#10;100🎯 99🎯 100🎯 95🏆 99🎯&#10;Final score: 981"
@@ -433,28 +442,9 @@
 </div>
 
 <script>
-const CLIENT_ID = '732837112670-vu67odbkbhb5ulllf6d0fuudq2a8n98j.apps.googleusercontent.com';
-const SHEET_ID = '1yQGQHEmvvgB4EToJNRpZUE14Pedix3eqnD7_jVM0KRY';
-const SHEET_NAME = 'datos';
-const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
-const REDIRECT_URI = location.origin + location.pathname.replace(/\/?(?:index\.html)?$/, '');
-
-const EMAIL_MAP = {
-  'j.moran.rodri@gmail.com':     'Moran',
-  'mgv3196@gmail.com':           'Mewis',
-  'gonzalopascual1996@gmail.com':'Gonzalo',
-  'jmuniz.1059@gmail.com':       'Muñi',
-  // 'email@gmail.com':           'Arias',
-};
-
-const PLAYER_MAP = {
-  'moran': 'Moran',
-  'gonzalo': 'Gonzalo',
-  'mewis': 'Mewis',
-  'muñi': 'Muñi',
-  'muni': 'Muñi',
-  'arias': 'Arias',
-};
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxEfXZI26RGWMDMXwmu0XP81oYBZOKSl-TJQAVv4UGdBSj5JthsLbXlFYZAjrbrBMjP/exec';
+const PLAYER_KEY = 'maptap_player';
+const PLAYERS    = ['Moran', 'Gonzalo', 'Mewis', 'Muñi', 'Arias'];
 
 const PLAYER_COLORS = {
   'Moran':   { bg: '#1a3a2a', fg: '#4ade80' },
@@ -464,8 +454,6 @@ const PLAYER_COLORS = {
   'Arias':   { bg: '#3a1a2a', fg: '#f472b6' },
 };
 
-let accessToken = null;
-let currentUser = null;
 let currentPlayer = null;
 let parsedResult = null;
 let dashboardLoaded = false;
@@ -479,83 +467,42 @@ let cachedChartData = null;
 
 const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-// ─── AUTH ───────────────────────────────────────────────
-function loginWithGoogle() {
-  const params = new URLSearchParams({
-    client_id: CLIENT_ID,
-    redirect_uri: REDIRECT_URI,
-    response_type: 'token id_token',
-    scope: 'openid email profile ' + SCOPES,
-    nonce: Math.random().toString(36).slice(2) + Date.now(),
-    prompt: 'consent',
-  });
-  location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
-}
-
-function handleOAuthCallback() {
-  if (!location.hash) return;
-  const params = new URLSearchParams(location.hash.slice(1));
-  const token = params.get('access_token');
-  const idToken = params.get('id_token');
-  if (!token) return;
-
-  history.replaceState(null, '', location.pathname);
-
-  if (idToken) {
-    try {
-      const payload = parseJwt(idToken);
-      currentUser = { name: payload.name, email: payload.email, picture: payload.picture, given_name: payload.given_name };
-      currentPlayer = resolvePlayer(payload.name, payload.email, payload.given_name);
-    } catch(e) { console.error('id_token parse error', e); }
-  }
-
-  accessToken = token;
-
-  if (!currentUser) return;
+// ─── PLAYER SELECTION ───────────────────────────────────
+function selectPlayer(name) {
+  currentPlayer = name;
+  localStorage.setItem(PLAYER_KEY, name);
   updateHeader();
   document.getElementById('login-view').style.display = 'none';
   document.getElementById('app-view').style.display = 'flex';
-  if (!currentPlayer) {
-    document.getElementById('not-registered').style.display = 'block';
-    document.getElementById('submit-btn').disabled = true;
-  }
+}
+
+function logout() {
+  localStorage.removeItem(PLAYER_KEY);
+  currentPlayer = null;
+  dashboardLoaded = false; historyLoaded = false;
+  historyData = []; historySortDir = -1;
+  scoreChartInstance?.destroy(); scoreChartInstance = null;
+  winsChartInstance?.destroy();  winsChartInstance = null;
+  cachedChartData = null;
+  document.getElementById('user-pill').innerHTML = '<span id="user-name-header">—</span>';
+  document.getElementById('app-view').style.display = 'none';
+  document.getElementById('login-view').style.display = '';
 }
 
 let previewMode = false;
 function enterPreviewMode() {
   previewMode = true;
-  currentUser = { name: 'Demo', email: 'demo@demo.com', picture: null, given_name: 'Demo' };
   currentPlayer = 'Moran';
-  accessToken = 'preview';
   updateHeader();
   document.getElementById('login-view').style.display = 'none';
   document.getElementById('app-view').style.display = 'flex';
   document.getElementById('submit-btn').disabled = true;
 }
 
-function resolvePlayer(name, email, givenName) {
-  if (EMAIL_MAP[email.toLowerCase()]) return EMAIL_MAP[email.toLowerCase()];
-  const candidates = [name, email.split('@')[0], givenName].map(s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
-  for (const c of candidates) {
-    for (const [key, val] of Object.entries(PLAYER_MAP)) {
-      if (c.includes(key) || key.includes(c)) return val;
-    }
-  }
-  return null;
-}
-
 function updateHeader() {
-  const pill = document.getElementById('user-pill');
-  const nameEl = document.getElementById('user-name-header');
-  nameEl.textContent = currentPlayer || currentUser.given_name;
-  if (currentUser.picture) {
-    pill.innerHTML = `<img class="user-avatar" src="${currentUser.picture}" referrerpolicy="no-referrer"><span>${currentPlayer || currentUser.given_name}</span>`;
-  }
-}
-
-function parseJwt(token) {
-  const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-  return JSON.parse(atob(base64));
+  const color = { Moran:'#4ade80', Gonzalo:'#60a5fa', Mewis:'#c084fc', 'Muñi':'#fb923c', Arias:'#f472b6' }[currentPlayer] || 'var(--accent)';
+  document.getElementById('user-pill').innerHTML =
+    `<span style="color:${color};font-weight:500">${currentPlayer}</span><button class="logout-btn" onclick="logout()" title="Cambiar jugador">↩</button>`;
 }
 
 // ─── TABS ────────────────────────────────────────────────
@@ -616,63 +563,36 @@ function onTextInput(value) {
 
 // ─── SUBMIT ──────────────────────────────────────────────
 async function submitResult() {
-  if (!parsedResult || !currentPlayer || !accessToken) return;
+  if (!parsedResult || !currentPlayer) return;
 
   const btn = document.getElementById('submit-btn');
-  const msg = document.getElementById('submit-msg');
   btn.disabled = true;
   btn.textContent = 'Enviando...';
   hideMsg();
 
+  const [r1, r2, r3, r4, r5] = parsedResult.rounds;
   try {
-    const existing = await readSheet();
-    const [r1,r2,r3,r4,r5] = parsedResult.rounds;
-    const isDuplicate = existing.some(e =>
-      e.fecha === parsedResult.fecha &&
-      e.jugador === currentPlayer &&
-      e.r1 === r1 && e.r2 === r2 && e.r3 === r3 && e.r4 === r4 && e.r5 === r5 &&
-      e.score === parsedResult.score
-    );
-    if (isDuplicate) {
+    const res  = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fecha: parsedResult.fecha, jugador: currentPlayer, r1, r2, r3, r4, r5, score: parsedResult.score })
+    });
+    const json = await res.json();
+
+    if (json.duplicate) {
       showMsg('Este resultado ya estaba registrado.', true);
-      btn.textContent = 'Enviar resultado';
-      btn.disabled = false;
-      return;
-    }
-
-    const row = [
-      parsedResult.fecha,
-      currentPlayer,
-      ...parsedResult.rounds,
-      parsedResult.score,
-      new Date().toISOString()
-    ];
-
-    const res = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}:append?valueInputOption=USER_ENTERED`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + accessToken,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ values: [row] })
-      }
-    );
-
-    if (res.ok) {
-      showMsg('Resultado enviado. ' + parsedResult.fecha + ' · ' + currentPlayer + ' · ' + parsedResult.score + ' pts', true);
+    } else if (json.ok) {
+      showMsg(`Resultado enviado. ${parsedResult.fecha} · ${currentPlayer} · ${parsedResult.score} pts`, true);
       document.getElementById('result-input').value = '';
       document.getElementById('preview').classList.remove('visible');
-      dashboardLoaded = false;
-      historyLoaded = false;
-      historyData = [];
-      historySortDir = -1;
+      parsedResult = null;
+      dashboardLoaded = false; historyLoaded = false;
+      historyData = []; historySortDir = -1;
       scoreChartInstance?.destroy(); scoreChartInstance = null;
       winsChartInstance?.destroy();  winsChartInstance = null;
+      cachedChartData = null;
     } else {
-      const err = await res.json();
-      showMsg('Error al guardar: ' + (err.error?.message || 'inténtalo de nuevo'), false);
+      showMsg('Error al guardar: ' + (json.error || 'inténtalo de nuevo'), false);
     }
   } catch (e) {
     showMsg('Error de conexión.', false);
@@ -705,31 +625,17 @@ async function readSheet() {
     {fecha:'2026-05-13',jugador:'Gonzalo',r1:90,r2:91,r3:93,r4:89,r5:91,score:930},
     {fecha:'2026-05-13',jugador:'Arias',  r1:96,r2:97,r3:98,r4:95,r5:97,score:975},
   ];
-  if (!accessToken) throw new Error('Sin autenticación — recarga e inicia sesión.');
-  const res = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}`,
-    { headers: { 'Authorization': 'Bearer ' + accessToken } }
-  );
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(`Error ${res.status}: ${errData.error?.message || res.statusText}`);
-  }
-  const data = await res.json();
-  const rows = data.values || [];
-  if (rows.length <= 1) return [];
-
-  const headers2 = rows[0];
-  return rows.slice(1).map(row => {
-    const obj = {};
-    headers2.forEach((h, i) => obj[h] = row[i] || '');
-    return {
-      fecha: obj.fecha,
-      jugador: obj.jugador,
-      r1: Number(obj.r1), r2: Number(obj.r2), r3: Number(obj.r3),
-      r4: Number(obj.r4), r5: Number(obj.r5),
-      score: Number(obj.score)
-    };
-  });
+  const res = await fetch(SCRIPT_URL);
+  if (!res.ok) throw new Error(`Error ${res.status}`);
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error en el servidor');
+  return json.data.map(row => ({
+    fecha:   row.fecha,
+    jugador: row.jugador,
+    r1: Number(row.r1), r2: Number(row.r2), r3: Number(row.r3),
+    r4: Number(row.r4), r5: Number(row.r5),
+    score: Number(row.score)
+  }));
 }
 
 // ─── DASHBOARD ───────────────────────────────────────────
@@ -1080,7 +986,10 @@ async function loadHistory() {
   document.getElementById('history-content').style.display = 'block';
 }
 
-handleOAuthCallback();
+const savedPlayer = localStorage.getItem(PLAYER_KEY);
+if (savedPlayer && PLAYERS.includes(savedPlayer)) {
+  selectPlayer(savedPlayer);
+}
 </script>
 </body>
 </html>

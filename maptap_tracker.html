@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MapTap Tracker</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --bg2: #1a1a1a;
+    --bg3: #242424;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f0;
+    --text2: #888;
+    --text3: #555;
+    --accent: #4ade80;
+    --accent2: #22c55e;
+    --danger: #f87171;
+    --warning: #fbbf24;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 0.5px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .user-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg3);
+    border: 0.5px solid var(--border2);
+    border-radius: 99px;
+    padding: 6px 12px 6px 6px;
+    font-size: 13px;
+    color: var(--text2);
+  }
+  .user-avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    object-fit: cover;
+  }
+  .user-avatar-placeholder {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--bg2);
+    border: 0.5px solid var(--border2);
+  }
+
+  /* NAV */
+  nav {
+    display: flex;
+    gap: 2px;
+    padding: 1rem 1.5rem 0;
+    border-bottom: 0.5px solid var(--border);
+  }
+  nav button {
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 16px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -0.5px;
+    transition: all 0.15s;
+  }
+  nav button.active { color: var(--text); border-bottom-color: var(--accent); }
+  nav button:hover:not(.active) { color: var(--text2); }
+
+  /* MAIN */
+  main { flex: 1; padding: 1.5rem; max-width: 600px; margin: 0 auto; width: 100%; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* LOGIN */
+  #login-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 70vh;
+    gap: 1.5rem;
+    text-align: center;
+  }
+  .login-icon { font-size: 48px; margin-bottom: 0.5rem; }
+  .login-title { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; }
+  .login-sub { font-size: 14px; color: var(--text2); max-width: 280px; line-height: 1.6; }
+
+  /* CARDS */
+  .card {
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 1rem;
+  }
+
+  /* SUBMIT */
+  textarea {
+    width: 100%;
+    background: var(--bg3);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 14px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    padding: 12px;
+    resize: none;
+    height: 110px;
+    line-height: 1.6;
+    transition: border 0.15s;
+    outline: none;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--text3); }
+
+  .submit-btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: #0a0a0a;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .submit-btn:hover { background: var(--accent2); }
+  .submit-btn:active { transform: scale(0.98); }
+  .submit-btn:disabled { background: var(--bg3); color: var(--text3); cursor: not-allowed; transform: none; }
+
+  /* PREVIEW */
+  .preview {
+    background: var(--bg3);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin-top: 12px;
+    display: none;
+  }
+  .preview.visible { display: block; }
+  .preview-row { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+  .preview-label { color: var(--text2); }
+  .preview-val { font-weight: 500; }
+  .preview-rounds { display: flex; gap: 6px; margin-top: 8px; }
+  .round-chip {
+    flex: 1;
+    background: var(--bg2);
+    border: 0.5px solid var(--border2);
+    border-radius: 6px;
+    text-align: center;
+    padding: 6px 4px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  /* MSG */
+  .msg {
+    margin-top: 10px;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    display: none;
+  }
+  .msg.ok { background: rgba(74,222,128,0.1); color: var(--accent); border: 0.5px solid rgba(74,222,128,0.2); }
+  .msg.err { background: rgba(248,113,113,0.1); color: var(--danger); border: 0.5px solid rgba(248,113,113,0.2); }
+  .msg.visible { display: block; }
+
+  /* METRICS */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+  .metric {
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+  }
+  .metric-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .metric-value { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
+  .metric-sub { font-size: 12px; color: var(--text2); margin-top: 3px; }
+
+  /* RANKING */
+  .ranking-list { list-style: none; }
+  .ranking-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .ranking-item:last-child { border-bottom: none; }
+  .rank-num { font-size: 13px; font-weight: 600; color: var(--text3); width: 18px; text-align: center; }
+  .rank-num.gold { color: #fbbf24; }
+  .rank-num.silver { color: #94a3b8; }
+  .rank-num.bronze { color: #b45309; }
+  .rank-avatar-circle {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600; flex-shrink: 0;
+  }
+  .rank-info { flex: 1; }
+  .rank-name { font-size: 14px; font-weight: 500; }
+  .rank-detail { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .rank-score { font-size: 15px; font-weight: 600; color: var(--accent); }
+
+  /* BAR CHART */
+  .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; }
+  .bar-name { font-size: 13px; color: var(--text2); width: 60px; flex-shrink: 0; text-align: right; }
+  .bar-track { flex: 1; background: var(--bg3); border-radius: 4px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; background: var(--accent); transition: width 0.6s ease; }
+  .bar-val { font-size: 12px; font-weight: 500; width: 36px; text-align: right; }
+
+  /* HISTORY TABLE */
+  .history { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .history th { color: var(--text3); font-weight: 500; text-align: left; padding: 6px 8px; border-bottom: 0.5px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .history td { padding: 10px 8px; border-bottom: 0.5px solid var(--border); color: var(--text2); }
+  .history td:first-child { color: var(--text); font-weight: 500; }
+  .history tr:last-child td { border-bottom: none; }
+  .winner-badge {
+    background: rgba(74,222,128,0.15);
+    color: var(--accent);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* LOADING */
+  .loading { text-align: center; padding: 3rem; color: var(--text3); font-size: 14px; }
+  .spinner {
+    width: 24px; height: 24px; border: 2px solid var(--border2);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin: 0 auto 1rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* NOT REGISTERED */
+  .not-registered {
+    background: rgba(251,191,36,0.08);
+    border: 0.5px solid rgba(251,191,36,0.2);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    font-size: 14px;
+    color: var(--warning);
+    line-height: 1.6;
+  }
+
+  @media (max-width: 480px) {
+    main { padding: 1rem; }
+    header { padding: 1rem; }
+    .metrics { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    MapTap Tracker
+  </div>
+  <div class="user-pill" id="user-pill">
+    <div class="user-avatar-placeholder"></div>
+    <span id="user-name-header">—</span>
+  </div>
+</header>
+
+<div id="login-view">
+  <div class="login-icon">🗺️</div>
+  <div class="login-title">MapTap Tracker</div>
+  <div class="login-sub">Identifícate con tu cuenta de Google para enviar resultados y ver el ranking.</div>
+  <div id="g_id_onload"
+    data-client_id="732837112670-vu67odbkbhb5ulllf6d0fuudq2a8n98j.apps.googleusercontent.com"
+    data-context="signin"
+    data-ux_mode="popup"
+    data-callback="onGoogleLogin"
+    data-auto_prompt="false">
+  </div>
+  <div class="g_id_signin"
+    data-type="standard"
+    data-shape="pill"
+    data-theme="outline"
+    data-text="signin_with"
+    data-size="large"
+    data-locale="es">
+  </div>
+</div>
+
+<div id="app-view" style="display:none; flex-direction:column; flex:1;">
+  <nav>
+    <button class="active" onclick="switchTab('submit')">Enviar</button>
+    <button onclick="switchTab('dashboard')">Dashboard</button>
+    <button onclick="switchTab('history')">Historial</button>
+  </nav>
+  <main>
+
+    <!-- SUBMIT -->
+    <div id="tab-submit" class="section active">
+      <div id="not-registered" class="not-registered" style="display:none">
+        Tu cuenta de Google no está registrada como jugador. Habla con Moran para que te añada.
+      </div>
+      <div class="card">
+        <div class="card-title">Tu resultado de hoy</div>
+        <textarea id="result-input"
+          placeholder="www.maptap.gg May 14&#10;100🎯 99🎯 100🎯 95🏆 99🎯&#10;Final score: 981"
+          oninput="onTextInput(this.value)"></textarea>
+        <div class="preview" id="preview">
+          <div class="preview-row">
+            <span class="preview-label">Fecha</span>
+            <span class="preview-val" id="p-fecha">—</span>
+          </div>
+          <div class="preview-row">
+            <span class="preview-label">Score final</span>
+            <span class="preview-val" id="p-score">—</span>
+          </div>
+          <div class="preview-rounds" id="p-rounds"></div>
+        </div>
+        <button class="submit-btn" id="submit-btn" onclick="submitResult()" disabled>
+          Enviar resultado
+        </button>
+        <div class="msg" id="submit-msg"></div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="tab-dashboard" class="section">
+      <div class="loading" id="dashboard-loading">
+        <div class="spinner"></div>
+        Cargando datos...
+      </div>
+      <div id="dashboard-content" style="display:none">
+        <div class="metrics" id="metrics"></div>
+        <div class="card">
+          <div class="card-title">Victorias</div>
+          <div class="bar-chart" id="wins-chart"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Puntuación media</div>
+          <div class="bar-chart" id="avg-chart"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Podio</div>
+          <ul class="ranking-list" id="ranking"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div id="tab-history" class="section">
+      <div class="loading" id="history-loading">
+        <div class="spinner"></div>
+        Cargando historial...
+      </div>
+      <div class="card" id="history-content" style="display:none">
+        <table class="history" id="history-table"></table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const CLIENT_ID = '732837112670-vu67odbkbhb5ulllf6d0fuudq2a8n98j.apps.googleusercontent.com';
+const SHEET_ID = '1yQGQHEmvvgB4EToJNRpZUE14Pedix3eqnD7_jVM0KRY';
+const SHEET_NAME = 'datos';
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+
+const PLAYER_MAP = {
+  'moran': 'Moran',
+  'gonzalo': 'Gonzalo',
+  'mewis': 'Mewis',
+  'muñi': 'Muñi',
+  'muni': 'Muñi',
+  'arias': 'Arias',
+};
+
+const PLAYER_COLORS = {
+  'Moran':   { bg: '#1a3a2a', fg: '#4ade80' },
+  'Gonzalo': { bg: '#1a2a3a', fg: '#60a5fa' },
+  'Mewis':   { bg: '#2a1a3a', fg: '#c084fc' },
+  'Muñi':    { bg: '#3a2a1a', fg: '#fb923c' },
+  'Arias':   { bg: '#3a1a2a', fg: '#f472b6' },
+};
+
+let accessToken = null;
+let currentUser = null;
+let currentPlayer = null;
+let parsedResult = null;
+let dashboardLoaded = false;
+let historyLoaded = false;
+
+// ─── AUTH ───────────────────────────────────────────────
+function onGoogleLogin(response) {
+  const payload = parseJwt(response.credential);
+  currentUser = {
+    name: payload.name,
+    email: payload.email,
+    picture: payload.picture,
+    given_name: payload.given_name,
+  };
+
+  currentPlayer = resolvePlayer(payload.name, payload.email, payload.given_name);
+
+  updateHeader();
+
+  const tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: (tokenResponse) => {
+      accessToken = tokenResponse.access_token;
+    },
+  });
+  tokenClient.requestAccessToken({ prompt: '' });
+
+  document.getElementById('login-view').style.display = 'none';
+  document.getElementById('app-view').style.display = 'flex';
+
+  if (!currentPlayer) {
+    document.getElementById('not-registered').style.display = 'block';
+    document.getElementById('submit-btn').disabled = true;
+  }
+}
+
+function resolvePlayer(name, email, givenName) {
+  const candidates = [name, email.split('@')[0], givenName].map(s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+  for (const c of candidates) {
+    for (const [key, val] of Object.entries(PLAYER_MAP)) {
+      if (c.includes(key) || key.includes(c)) return val;
+    }
+  }
+  return null;
+}
+
+function updateHeader() {
+  const pill = document.getElementById('user-pill');
+  const nameEl = document.getElementById('user-name-header');
+  nameEl.textContent = currentPlayer || currentUser.given_name;
+  if (currentUser.picture) {
+    pill.innerHTML = `<img class="user-avatar" src="${currentUser.picture}" referrerpolicy="no-referrer"><span>${currentPlayer || currentUser.given_name}</span>`;
+  }
+}
+
+function parseJwt(token) {
+  const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+  return JSON.parse(atob(base64));
+}
+
+// ─── TABS ────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.target.classList.add('active');
+  if (tab === 'dashboard' && !dashboardLoaded) loadDashboard();
+  if (tab === 'history' && !historyLoaded) loadHistory();
+}
+
+// ─── PARSER ──────────────────────────────────────────────
+function parseMapTap(text) {
+  try {
+    const lines = text.trim().split('\n').map(l => l.trim()).filter(l => l);
+    if (lines.length < 3) return null;
+
+    const dateMatch = lines[0].match(/([A-Za-z]+)\s+(\d+)/);
+    if (!dateMatch) return null;
+    const year = new Date().getFullYear();
+    const d = new Date(`${dateMatch[1]} ${dateMatch[2]} ${year}`);
+    if (isNaN(d)) return null;
+    const fecha = d.toISOString().split('T')[0];
+
+    const nums = lines[1].match(/\d+/g);
+    if (!nums || nums.length < 5) return null;
+    const rounds = nums.slice(0, 5).map(Number);
+
+    const scoreMatch = lines[2].match(/\d+/);
+    if (!scoreMatch) return null;
+    const score = Number(scoreMatch[0]);
+
+    return { fecha, rounds, score };
+  } catch { return null; }
+}
+
+function onTextInput(value) {
+  parsedResult = parseMapTap(value);
+  const preview = document.getElementById('preview');
+  const btn = document.getElementById('submit-btn');
+
+  if (parsedResult && currentPlayer) {
+    preview.classList.add('visible');
+    document.getElementById('p-fecha').textContent = parsedResult.fecha;
+    document.getElementById('p-score').textContent = parsedResult.score;
+    document.getElementById('p-rounds').innerHTML = parsedResult.rounds.map((r, i) =>
+      `<div class="round-chip">R${i+1}<br>${r}</div>`
+    ).join('');
+    btn.disabled = false;
+  } else {
+    preview.classList.remove('visible');
+    btn.disabled = true;
+  }
+}
+
+// ─── SUBMIT ──────────────────────────────────────────────
+async function submitResult() {
+  if (!parsedResult || !currentPlayer || !accessToken) return;
+
+  const btn = document.getElementById('submit-btn');
+  const msg = document.getElementById('submit-msg');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+  hideMsg();
+
+  try {
+    const row = [
+      parsedResult.fecha,
+      currentPlayer,
+      ...parsedResult.rounds,
+      parsedResult.score,
+      new Date().toISOString()
+    ];
+
+    const res = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}:append?valueInputOption=USER_ENTERED`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ values: [row] })
+      }
+    );
+
+    if (res.ok) {
+      showMsg('Resultado enviado. ' + parsedResult.fecha + ' · ' + currentPlayer + ' · ' + parsedResult.score + ' pts', true);
+      document.getElementById('result-input').value = '';
+      document.getElementById('preview').classList.remove('visible');
+      dashboardLoaded = false;
+      historyLoaded = false;
+    } else {
+      const err = await res.json();
+      showMsg('Error al guardar: ' + (err.error?.message || 'inténtalo de nuevo'), false);
+    }
+  } catch (e) {
+    showMsg('Error de conexión.', false);
+  }
+
+  btn.textContent = 'Enviar resultado';
+  btn.disabled = false;
+}
+
+function showMsg(text, ok) {
+  const msg = document.getElementById('submit-msg');
+  msg.textContent = text;
+  msg.className = 'msg ' + (ok ? 'ok' : 'err') + ' visible';
+}
+function hideMsg() {
+  document.getElementById('submit-msg').className = 'msg';
+}
+
+// ─── READ SHEET ───────────────────────────────────────────
+async function readSheet() {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}?key=AIzaSyD-placeholder`;
+
+  // Si tiene token usa auth, si no intenta con sheet pública
+  const headers = accessToken ? { 'Authorization': 'Bearer ' + accessToken } : {};
+
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}`,
+    { headers: accessToken ? { 'Authorization': 'Bearer ' + accessToken } : {} }
+  );
+  if (!res.ok) throw new Error('No se pudieron leer los datos');
+  const data = await res.json();
+  const rows = data.values || [];
+  if (rows.length <= 1) return [];
+
+  const headers2 = rows[0];
+  return rows.slice(1).map(row => {
+    const obj = {};
+    headers2.forEach((h, i) => obj[h] = row[i] || '');
+    return {
+      fecha: obj.fecha,
+      jugador: obj.jugador,
+      r1: Number(obj.r1), r2: Number(obj.r2), r3: Number(obj.r3),
+      r4: Number(obj.r4), r5: Number(obj.r5),
+      score: Number(obj.score)
+    };
+  });
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────
+async function loadDashboard() {
+  document.getElementById('dashboard-loading').style.display = 'block';
+  document.getElementById('dashboard-content').style.display = 'none';
+
+  try {
+    const data = await readSheet();
+    const stats = computeStats(data);
+    renderMetrics(stats, data);
+    renderBarChart('wins-chart', stats, 'wins', Math.max(...Object.values(stats).map(s => s.wins)));
+    renderBarChart('avg-chart', stats, 'avg', Math.max(...Object.values(stats).map(s => s.avg)), 900);
+    renderRanking(stats);
+    dashboardLoaded = true;
+  } catch(e) {
+    document.getElementById('dashboard-loading').innerHTML = '<p style="color:var(--danger)">Error cargando datos.</p>';
+    return;
+  }
+
+  document.getElementById('dashboard-loading').style.display = 'none';
+  document.getElementById('dashboard-content').style.display = 'block';
+}
+
+function computeStats(data) {
+  const players = ['Moran', 'Gonzalo', 'Mewis', 'Muñi', 'Arias'];
+  const stats = {};
+  players.forEach(p => stats[p] = { wins: 0, scores: [], best: 0, entries: 0 });
+
+  const byDate = {};
+  data.forEach(r => {
+    if (!byDate[r.fecha]) byDate[r.fecha] = [];
+    byDate[r.fecha].push(r);
+  });
+
+  Object.values(byDate).forEach(entries => {
+    const winner = entries.reduce((a, b) => a.score > b.score ? a : b);
+    if (stats[winner.jugador]) stats[winner.jugador].wins++;
+    entries.forEach(e => {
+      if (stats[e.jugador]) {
+        stats[e.jugador].scores.push(e.score);
+        stats[e.jugador].entries++;
+        if (e.score > stats[e.jugador].best) stats[e.jugador].best = e.score;
+      }
+    });
+  });
+
+  Object.keys(stats).forEach(p => {
+    const arr = stats[p].scores;
+    stats[p].avg = arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+  });
+
+  return stats;
+}
+
+function renderMetrics(stats, data) {
+  const days = new Set(data.map(r => r.fecha)).size;
+  const leader = Object.entries(stats).sort((a,b) => b[1].wins - a[1].wins)[0];
+  const bestAvg = Object.entries(stats).sort((a,b) => b[1].avg - a[1].avg)[0];
+  const record = Math.max(...data.map(r => r.score), 0);
+
+  document.getElementById('metrics').innerHTML = `
+    <div class="metric">
+      <div class="metric-label">Días jugados</div>
+      <div class="metric-value">${days}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Líder</div>
+      <div class="metric-value">${leader ? leader[0] : '—'}</div>
+      <div class="metric-sub">${leader ? leader[1].wins + ' victorias' : ''}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Mejor media</div>
+      <div class="metric-value">${bestAvg ? bestAvg[0] : '—'}</div>
+      <div class="metric-sub">${bestAvg ? bestAvg[1].avg + ' pts' : ''}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Record</div>
+      <div class="metric-value">${record}</div>
+      <div class="metric-sub">puntos</div>
+    </div>
+  `;
+}
+
+function renderBarChart(id, stats, key, max, minVal = 0) {
+  const sorted = Object.entries(stats).sort((a,b) => b[1][key] - a[1][key]);
+  const range = max - minVal || 1;
+
+  document.getElementById(id).innerHTML = sorted.map(([name, s]) => {
+    const val = s[key];
+    const pct = Math.round(((val - minVal) / range) * 100);
+    const color = PLAYER_COLORS[name]?.fg || '#4ade80';
+    return `
+      <div class="bar-row">
+        <div class="bar-name">${name}</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <div class="bar-val">${val}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderRanking(stats) {
+  const sorted = Object.entries(stats).sort((a,b) => b[1].wins - a[1].wins || b[1].avg - a[1].avg);
+  const medals = ['gold', 'silver', 'bronze'];
+
+  document.getElementById('ranking').innerHTML = sorted.map(([name, s], i) => {
+    const c = PLAYER_COLORS[name] || { bg: '#1a1a1a', fg: '#888' };
+    const initials = name.slice(0, 2).toUpperCase();
+    return `
+      <li class="ranking-item">
+        <div class="rank-num ${medals[i] || ''}">${i + 1}</div>
+        <div class="rank-avatar-circle" style="background:${c.bg};color:${c.fg}">${initials}</div>
+        <div class="rank-info">
+          <div class="rank-name">${name}</div>
+          <div class="rank-detail">${s.wins} victorias · mejor: ${s.best}</div>
+        </div>
+        <div class="rank-score">${s.avg}</div>
+      </li>`;
+  }).join('');
+}
+
+// ─── HISTORY ─────────────────────────────────────────────
+async function loadHistory() {
+  document.getElementById('history-loading').style.display = 'block';
+  document.getElementById('history-content').style.display = 'none';
+
+  try {
+    const data = await readSheet();
+    const sorted = [...data].sort((a, b) => b.fecha.localeCompare(a.fecha));
+
+    const byDate = {};
+    sorted.forEach(r => {
+      if (!byDate[r.fecha]) byDate[r.fecha] = [];
+      byDate[r.fecha].push(r);
+    });
+
+    let html = `<thead><tr>
+      <th>Fecha</th><th>Jugador</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>R5</th><th>Score</th>
+    </tr></thead><tbody>`;
+
+    Object.entries(byDate).forEach(([fecha, entries]) => {
+      const maxScore = Math.max(...entries.map(e => e.score));
+      const dayRows = [...entries].sort((a, b) => b.score - a.score);
+      dayRows.forEach(e => {
+        const isWinner = e.score === maxScore;
+        html += `<tr>
+          <td>${fecha}</td>
+          <td>${e.jugador}${isWinner ? ' <span class="winner-badge">win</span>' : ''}</td>
+          <td>${e.r1}</td><td>${e.r2}</td><td>${e.r3}</td><td>${e.r4}</td><td>${e.r5}</td>
+          <td style="color:var(--accent);font-weight:500">${e.score}</td>
+        </tr>`;
+      });
+    });
+
+    html += '</tbody>';
+    document.getElementById('history-table').innerHTML = html;
+    historyLoaded = true;
+  } catch(e) {
+    document.getElementById('history-loading').innerHTML = '<p style="color:var(--danger)">Error cargando historial.</p>';
+    return;
+  }
+
+  document.getElementById('history-loading').style.display = 'none';
+  document.getElementById('history-content').style.display = 'block';
+}
+</script>
+</body>
+</html>

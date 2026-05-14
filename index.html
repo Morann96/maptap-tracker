@@ -335,6 +335,10 @@
 </div>
 
 <div id="app-view" style="display:none; flex-direction:column; flex:1;">
+  <div id="sheets-auth-notice" class="not-registered" style="display:none; margin:1rem 1rem 0;">
+    Se necesita acceso a Google Sheets para leer y guardar datos.
+    <button onclick="grantSheetsAccess()" style="margin-left:1rem;padding:0.3rem 0.8rem;cursor:pointer;">Dar acceso</button>
+  </div>
   <nav>
     <button class="active" onclick="switchTab('submit')">Enviar</button>
     <button onclick="switchTab('dashboard')">Dashboard</button>
@@ -431,6 +435,7 @@ const PLAYER_COLORS = {
 };
 
 let accessToken = null;
+let tokenClient = null;
 let currentUser = null;
 let currentPlayer = null;
 let parsedResult = null;
@@ -451,15 +456,16 @@ function onGoogleLogin(response) {
 
   updateHeader();
 
-  const tokenClient = google.accounts.oauth2.initTokenClient({
+  tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: SCOPES,
     callback: (tokenResponse) => {
       if (tokenResponse.error) {
-        tokenClient.requestAccessToken({ prompt: 'consent' });
+        document.getElementById('sheets-auth-notice').style.display = 'block';
         return;
       }
       accessToken = tokenResponse.access_token;
+      document.getElementById('sheets-auth-notice').style.display = 'none';
     },
   });
   tokenClient.requestAccessToken({ prompt: '' });
@@ -471,6 +477,10 @@ function onGoogleLogin(response) {
     document.getElementById('not-registered').style.display = 'block';
     document.getElementById('submit-btn').disabled = true;
   }
+}
+
+function grantSheetsAccess() {
+  if (tokenClient) tokenClient.requestAccessToken({ prompt: 'consent' });
 }
 
 function resolvePlayer(name, email, givenName) {

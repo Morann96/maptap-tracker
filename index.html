@@ -440,7 +440,7 @@ function loginWithGoogle() {
     response_type: 'token id_token',
     scope: 'openid email profile ' + SCOPES,
     nonce: Math.random().toString(36).slice(2) + Date.now(),
-    include_granted_scopes: 'true',
+    prompt: 'consent',
   });
   location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
 }

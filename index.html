@@ -455,6 +455,10 @@ function onGoogleLogin(response) {
     client_id: CLIENT_ID,
     scope: SCOPES,
     callback: (tokenResponse) => {
+      if (tokenResponse.error) {
+        tokenClient.requestAccessToken({ prompt: 'consent' });
+        return;
+      }
       accessToken = tokenResponse.access_token;
     },
   });

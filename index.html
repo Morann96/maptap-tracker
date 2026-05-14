@@ -630,7 +630,7 @@ async function readSheet() {
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error en el servidor');
   return json.data.map(row => ({
-    fecha:   row.fecha,
+    fecha:   String(row.fecha).slice(0, 10), // normaliza a YYYY-MM-DD por si llega como ISO timestamp
     jugador: row.jugador,
     r1: Number(row.r1), r2: Number(row.r2), r3: Number(row.r3),
     r4: Number(row.r4), r5: Number(row.r5),

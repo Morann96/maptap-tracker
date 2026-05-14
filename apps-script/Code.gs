@@ -13,10 +13,17 @@ function doGet() {
     const rows  = sheet.getDataRange().getValues();
     if (rows.length <= 1) return ok({ data: [] }); // sheet vacío (solo cabecera)
     const headers = rows[0];
+    const tz = Session.getScriptTimeZone();
     // Convierte cada fila en un objeto { fecha, jugador, r1, r2, r3, r4, r5, score, timestamp }
     const data = rows.slice(1).map(row => {
       const obj = {};
-      headers.forEach((h, i) => { obj[h] = row[i]; });
+      headers.forEach((h, i) => {
+        // Las celdas de fecha se almacenan como objetos Date en Sheets; las
+        // normalizamos a string YYYY-MM-DD respetando la zona horaria del script
+        obj[h] = (h === 'fecha' && row[i] instanceof Date)
+          ? Utilities.formatDate(row[i], tz, 'yyyy-MM-dd')
+          : row[i];
+      });
       return obj;
     });
     return ok({ data });

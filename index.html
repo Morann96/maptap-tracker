@@ -631,7 +631,9 @@ async function submitResult() {
   try {
     const res  = await fetch(SCRIPT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // Apps Script web apps do not answer CORS preflight OPTIONS requests.
+      // text/plain keeps this as a simple CORS request while preserving the JSON body.
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ fecha: parsedResult.fecha, jugador: currentPlayer, r1, r2, r3, r4, r5, score: parsedResult.score })
     });
     const json = await res.json();

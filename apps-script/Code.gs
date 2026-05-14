@@ -19,9 +19,7 @@ function doGet() {
       headers.forEach((h, i) => {
         // Las celdas de fecha se almacenan como objetos Date en Sheets; las
         // normalizamos a string YYYY-MM-DD respetando la zona horaria del script
-        obj[h] = (h === 'fecha' && row[i] instanceof Date)
-          ? Utilities.formatDate(row[i], 'Europe/Madrid', 'yyyy-MM-dd')
-          : row[i];
+        obj[h] = h === 'fecha' ? normalizeFecha(row[i]) : row[i];
       });
       return obj;
     });
@@ -51,7 +49,7 @@ function doPost(e) {
     // Comprueba si ya existe una fila idéntica (misma fecha, jugador y puntuaciones)
     // para evitar duplicados si el usuario envía el mismo resultado dos veces
     const dup = rows.slice(1).some(row =>
-      row[idx('fecha')]   === fecha    &&
+      normalizeFecha(row[idx('fecha')]) === fecha &&
       row[idx('jugador')] === jugador  &&
       Number(row[idx('r1')]) === Number(r1) &&
       Number(row[idx('r2')]) === Number(r2) &&
@@ -84,4 +82,11 @@ function resp(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function normalizeFecha(value) {
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, 'Europe/Madrid', 'yyyy-MM-dd');
+  }
+  return String(value || '').slice(0, 10);
 }

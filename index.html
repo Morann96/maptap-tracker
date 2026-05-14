@@ -511,9 +511,11 @@ function parseMapTap(text) {
 
     const dateMatch = lines[0].match(/([A-Za-z]+)\s+(\d+)/);
     if (!dateMatch) return null;
-    const year = new Date().getFullYear();
+    const now = new Date();
+    let year = now.getFullYear();
     const d = new Date(`${dateMatch[1]} ${dateMatch[2]} ${year}`);
     if (isNaN(d)) return null;
+    if (d.getMonth() > now.getMonth()) d.setFullYear(year - 1);
     const fecha = d.toISOString().split('T')[0];
 
     const nums = lines[1].match(/\d+/g);
@@ -607,11 +609,6 @@ function hideMsg() {
 
 // ─── READ SHEET ───────────────────────────────────────────
 async function readSheet() {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}?key=AIzaSyD-placeholder`;
-
-  // Si tiene token usa auth, si no intenta con sheet pública
-  const headers = accessToken ? { 'Authorization': 'Bearer ' + accessToken } : {};
-
   const res = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}`,
     { headers: accessToken ? { 'Authorization': 'Bearer ' + accessToken } : {} }

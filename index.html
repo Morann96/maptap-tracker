@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MapTap Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   :root {
     --bg: #0f0f0f;
@@ -261,9 +262,19 @@
   /* HISTORY TABLE */
   .history { width: 100%; border-collapse: collapse; font-size: 13px; }
   .history th { color: var(--text3); font-weight: 500; text-align: left; padding: 6px 8px; border-bottom: 0.5px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+  .card-header .card-title { margin-bottom:0; }
+  .toggle-pill { display:flex; background:var(--bg3); border-radius:6px; padding:2px; gap:2px; }
+  .toggle-pill button { background:none; border:none; color:var(--text2); font-size:11px; padding:4px 10px; border-radius:4px; cursor:pointer; }
+  .toggle-pill button.active { background:var(--surface2,#2a2a2a); color:var(--text); }
+  .chart-wrap { position:relative; height:220px; }
   .history th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
   .history th.sortable:hover { color: var(--text2); }
   .history th.sort-active { color: var(--accent); }
+  .month-filter { background:var(--bg3); border:0.5px solid var(--border2); color:var(--text); border-radius:6px; padding:4px 10px; font-size:12px; cursor:pointer; outline:none; }
+  .history-scroll { overflow-y:auto; max-height:420px; }
+  .history-scroll::-webkit-scrollbar { width:4px; }
+  .history-scroll::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
   .history td { padding: 10px 8px; border-bottom: 0.5px solid var(--border); color: var(--text2); }
   .history td:first-child { color: var(--text); font-weight: 500; }
   .history tr:last-child td { border-bottom: none; }
@@ -376,6 +387,26 @@
           <div class="card-title">Estadísticas</div>
           <table class="history" id="stats-table"></table>
         </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Histórico de puntuaciones</div>
+            <div class="toggle-pill">
+              <button class="active" data-g="date" onclick="setChartGranularity('date')">Fecha</button>
+              <button data-g="month" onclick="setChartGranularity('month')">Mes</button>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="score-chart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Victorias acumuladas</div>
+            <div class="toggle-pill">
+              <button class="active" data-g="date" onclick="setChartGranularity('date')">Fecha</button>
+              <button data-g="month" onclick="setChartGranularity('month')">Mes</button>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="wins-line-chart"></canvas></div>
+        </div>
       </div>
     </div>
 
@@ -386,7 +417,15 @@
         Cargando historial...
       </div>
       <div class="card" id="history-content" style="display:none">
-        <table class="history" id="history-table"></table>
+        <div class="card-header">
+          <div class="card-title">Historial</div>
+          <select id="history-month-filter" class="month-filter" onchange="filterHistory()">
+            <option value="">Todos los meses</option>
+          </select>
+        </div>
+        <div class="history-scroll">
+          <table class="history" id="history-table"></table>
+        </div>
       </div>
     </div>
 
@@ -431,6 +470,14 @@ let currentPlayer = null;
 let parsedResult = null;
 let dashboardLoaded = false;
 let historyLoaded = false;
+let historyData = [];
+let historySortDir = -1; // -1 = newest first, 1 = oldest first
+let chartGranularity = 'date';
+let scoreChartInstance = null;
+let winsChartInstance = null;
+let cachedChartData = null;
+
+const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 // ─── AUTH ───────────────────────────────────────────────
 function loginWithGoogle() {
@@ -619,6 +666,10 @@ async function submitResult() {
       document.getElementById('preview').classList.remove('visible');
       dashboardLoaded = false;
       historyLoaded = false;
+      historyData = [];
+      historySortDir = -1;
+      scoreChartInstance?.destroy(); scoreChartInstance = null;
+      winsChartInstance?.destroy();  winsChartInstance = null;
     } else {
       const err = await res.json();
       showMsg('Error al guardar: ' + (err.error?.message || 'inténtalo de nuevo'), false);
@@ -691,6 +742,8 @@ async function loadDashboard() {
     const stats = computeStats(data);
     renderMetrics(stats, data);
     renderStatsTable(stats, data);
+    renderScoreChart(data);
+    renderWinsChart(data);
     dashboardLoaded = true;
   } catch(e) {
     console.error('loadDashboard error:', e);
@@ -820,41 +873,202 @@ function sortStatsTable(key) {
   if (cachedStatsTable) renderStatsTable(cachedStatsTable);
 }
 
+// ─── CHARTS ──────────────────────────────────────────────
+function setChartGranularity(g) {
+  chartGranularity = g;
+  document.querySelectorAll('.toggle-pill button').forEach(b =>
+    b.classList.toggle('active', b.dataset.g === g)
+  );
+  if (cachedChartData) {
+    renderScoreChart(cachedChartData);
+    renderWinsChart(cachedChartData);
+  }
+}
+
+function chartBaseOptions(extra = {}) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: '#888', boxWidth: 12, font: { size: 11 } } },
+      tooltip: { backgroundColor: '#1a1a1a', borderColor: '#333', borderWidth: 1, titleColor: '#ccc', bodyColor: '#aaa' },
+    },
+    scales: {
+      x: { ticks: { color: '#555', maxRotation: 45, font: { size: 10 } }, grid: { color: '#1e1e1e' } },
+      y: { ticks: { color: '#555', font: { size: 10 } }, grid: { color: '#1e1e1e' } },
+    },
+    ...extra,
+  };
+}
+
+function renderScoreChart(data) {
+  cachedChartData = data;
+  const players = ['Moran','Gonzalo','Mewis','Muñi','Arias'].filter(p => data.some(r => r.jugador === p));
+
+  let labels, datasets;
+  if (chartGranularity === 'date') {
+    const dateDates = [...new Set(data.map(r => r.fecha))].sort();
+    labels = dateDates.map(d => d.split('-').reverse().join('/'));
+    datasets = players.map(p => {
+      const color = PLAYER_COLORS[p].fg;
+      return {
+        label: p,
+        data: dateDates.map(d => data.find(r => r.fecha === d && r.jugador === p)?.score ?? null),
+        borderColor: color, backgroundColor: color + '22',
+        spanGaps: false, tension: 0.3, pointRadius: 3, borderWidth: 2,
+      };
+    });
+  } else {
+    const keys = [...new Set(data.map(r => r.fecha.slice(0,7)))].sort();
+    labels = keys.map(k => {
+      const [y, m] = k.split('-');
+      return `${MONTHS_ES[parseInt(m)-1]} ${y.slice(2)}`;
+    });
+    datasets = players.map(p => {
+      const color = PLAYER_COLORS[p].fg;
+      return {
+        label: p,
+        data: keys.map(k => {
+          const rows = data.filter(r => r.jugador === p && r.fecha.startsWith(k));
+          return rows.length ? Math.round(rows.reduce((s, r) => s + r.score, 0) / rows.length) : null;
+        }),
+        borderColor: color, backgroundColor: color + '22',
+        spanGaps: false, tension: 0.3, pointRadius: 4, borderWidth: 2,
+      };
+    });
+  }
+
+  if (scoreChartInstance) scoreChartInstance.destroy();
+  scoreChartInstance = new Chart(
+    document.getElementById('score-chart'),
+    { type: 'line', data: { labels, datasets }, options: chartBaseOptions() }
+  );
+}
+
+function renderWinsChart(data) {
+  const players = ['Moran','Gonzalo','Mewis','Muñi','Arias'].filter(p => data.some(r => r.jugador === p));
+
+  const byDate = {};
+  data.forEach(r => { (byDate[r.fecha] = byDate[r.fecha] || []).push(r); });
+
+  const winsOpts = chartBaseOptions({ scales: {
+    x: { ticks:{ color:'#555', maxRotation:45, font:{size:10} }, grid:{color:'#1e1e1e'} },
+    y: { min:0, ticks:{ color:'#555', font:{size:10}, stepSize:1 }, grid:{color:'#1e1e1e'} },
+  }});
+
+  let labels, datasets;
+
+  if (chartGranularity === 'date') {
+    const dateDates = [...new Set(data.map(r => r.fecha))].sort();
+    labels = dateDates.map(d => d.split('-').reverse().join('/'));
+    datasets = players.map(p => {
+      const color = PLAYER_COLORS[p].fg;
+      let cum = 0;
+      return {
+        label: p,
+        data: dateDates.map(d => {
+          const winner = (byDate[d] || []).reduce((a, b) => a.score > b.score ? a : b, { score:-1, jugador:null });
+          if (winner.jugador === p) cum++;
+          return cum;
+        }),
+        borderColor: color, backgroundColor: color + '22',
+        tension: 0.1, pointRadius: 3, borderWidth: 2,
+      };
+    });
+  } else {
+    const keys = [...new Set(data.map(r => r.fecha.slice(0,7)))].sort();
+    labels = keys.map(k => { const [y,m] = k.split('-'); return `${MONTHS_ES[parseInt(m)-1]} ${y.slice(2)}`; });
+    datasets = players.map(p => {
+      const color = PLAYER_COLORS[p].fg;
+      let cum = 0;
+      return {
+        label: p,
+        data: keys.map(k => {
+          const datesInMonth = [...new Set(data.filter(r => r.fecha.startsWith(k)).map(r => r.fecha))].sort();
+          datesInMonth.forEach(d => {
+            const winner = (byDate[d] || []).reduce((a, b) => a.score > b.score ? a : b, { score:-1, jugador:null });
+            if (winner.jugador === p) cum++;
+          });
+          return cum;
+        }),
+        borderColor: color, backgroundColor: color + '22',
+        tension: 0.1, pointRadius: 4, borderWidth: 2,
+      };
+    });
+  }
+
+  if (winsChartInstance) winsChartInstance.destroy();
+  winsChartInstance = new Chart(
+    document.getElementById('wins-line-chart'),
+    { type: 'line', data: { labels, datasets }, options: winsOpts }
+  );
+}
+
 // ─── HISTORY ─────────────────────────────────────────────
+function renderHistoryTable() {
+  const filter = document.getElementById('history-month-filter')?.value || '';
+  let rows = filter ? historyData.filter(r => r.fecha.startsWith(filter)) : [...historyData];
+
+  rows.sort((a, b) => historySortDir * a.fecha.localeCompare(b.fecha));
+
+  const dates = [...new Set(rows.map(r => r.fecha))];
+  const byDate = {};
+  rows.forEach(r => {
+    if (!byDate[r.fecha]) byDate[r.fecha] = [];
+    byDate[r.fecha].push(r);
+  });
+
+  const arrow = historySortDir === -1 ? ' ↓' : ' ↑';
+  let html = `<thead><tr>
+    <th class="sortable sort-active" onclick="toggleHistorySort()">Fecha${arrow}</th>
+    <th>Jugador</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>R5</th><th>Score</th>
+  </tr></thead><tbody>`;
+
+  dates.forEach(fecha => {
+    const entries = byDate[fecha];
+    const maxScore = Math.max(...entries.map(e => e.score));
+    [...entries].sort((a, b) => b.score - a.score).forEach(e => {
+      const isWinner = e.score === maxScore;
+      html += `<tr>
+        <td>${fecha.split('-').reverse().join('/')}</td>
+        <td>${e.jugador}${isWinner ? ' <span class="winner-badge">win</span>' : ''}</td>
+        <td>${e.r1}</td><td>${e.r2}</td><td>${e.r3}</td><td>${e.r4}</td><td>${e.r5}</td>
+        <td style="color:var(--accent);font-weight:500">${e.score}</td>
+      </tr>`;
+    });
+  });
+
+  html += '</tbody>';
+  document.getElementById('history-table').innerHTML = html;
+}
+
+function toggleHistorySort() {
+  historySortDir *= -1;
+  renderHistoryTable();
+}
+
+function filterHistory() {
+  renderHistoryTable();
+}
+
 async function loadHistory() {
   document.getElementById('history-loading').style.display = 'block';
   document.getElementById('history-content').style.display = 'none';
 
   try {
-    const data = await readSheet();
-    const sorted = [...data].sort((a, b) => b.fecha.localeCompare(a.fecha));
+    historyData = await readSheet();
 
-    const byDate = {};
-    sorted.forEach(r => {
-      if (!byDate[r.fecha]) byDate[r.fecha] = [];
-      byDate[r.fecha].push(r);
+    const months = [...new Set(historyData.map(r => r.fecha.slice(0, 7)))].sort().reverse();
+    const sel = document.getElementById('history-month-filter');
+    sel.innerHTML = '<option value="">Todos los meses</option>';
+    months.forEach(m => {
+      const [year, month] = m.split('-');
+      const label = `${MONTHS_ES[parseInt(month) - 1]} ${year.slice(2)}`;
+      sel.innerHTML += `<option value="${m}">${label}</option>`;
     });
 
-    let html = `<thead><tr>
-      <th>Fecha</th><th>Jugador</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>R5</th><th>Score</th>
-    </tr></thead><tbody>`;
-
-    Object.entries(byDate).forEach(([fecha, entries]) => {
-      const maxScore = Math.max(...entries.map(e => e.score));
-      const dayRows = [...entries].sort((a, b) => b.score - a.score);
-      dayRows.forEach(e => {
-        const isWinner = e.score === maxScore;
-        html += `<tr>
-          <td>${fecha}</td>
-          <td>${e.jugador}${isWinner ? ' <span class="winner-badge">win</span>' : ''}</td>
-          <td>${e.r1}</td><td>${e.r2}</td><td>${e.r3}</td><td>${e.r4}</td><td>${e.r5}</td>
-          <td style="color:var(--accent);font-weight:500">${e.score}</td>
-        </tr>`;
-      });
-    });
-
-    html += '</tbody>';
-    document.getElementById('history-table').innerHTML = html;
+    renderHistoryTable();
     historyLoaded = true;
   } catch(e) {
     console.error('loadHistory error:', e);

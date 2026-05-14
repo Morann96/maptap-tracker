@@ -608,12 +608,25 @@ function hideMsg() {
 }
 
 // ─── READ SHEET ───────────────────────────────────────────
+async function waitForToken(timeoutMs = 8000) {
+  if (accessToken) return;
+  const start = Date.now();
+  while (!accessToken) {
+    if (Date.now() - start > timeoutMs) throw new Error('Tiempo de espera agotado obteniendo token de acceso. Recarga e inicia sesión.');
+    await new Promise(r => setTimeout(r, 150));
+  }
+}
+
 async function readSheet() {
+  await waitForToken();
   const res = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}`,
-    { headers: accessToken ? { 'Authorization': 'Bearer ' + accessToken } : {} }
+    { headers: { 'Authorization': 'Bearer ' + accessToken } }
   );
-  if (!res.ok) throw new Error('No se pudieron leer los datos');
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(`Error ${res.status}: ${errData.error?.message || res.statusText}`);
+  }
   const data = await res.json();
   const rows = data.values || [];
   if (rows.length <= 1) return [];
@@ -646,7 +659,8 @@ async function loadDashboard() {
     renderRanking(stats);
     dashboardLoaded = true;
   } catch(e) {
-    document.getElementById('dashboard-loading').innerHTML = '<p style="color:var(--danger)">Error cargando datos.</p>';
+    console.error('loadDashboard error:', e);
+    document.getElementById('dashboard-loading').innerHTML = `<p style="color:var(--danger)">Error cargando datos: ${e.message}</p>`;
     return;
   }
 
@@ -790,7 +804,8 @@ async function loadHistory() {
     document.getElementById('history-table').innerHTML = html;
     historyLoaded = true;
   } catch(e) {
-    document.getElementById('history-loading').innerHTML = '<p style="color:var(--danger)">Error cargando historial.</p>';
+    console.error('loadHistory error:', e);
+    document.getElementById('history-loading').innerHTML = `<p style="color:var(--danger)">Error cargando historial: ${e.message}</p>`;
     return;
   }
 

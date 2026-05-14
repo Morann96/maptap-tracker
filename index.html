@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MapTap Tracker</title>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root {
     --bg: #0f0f0f;
@@ -113,6 +112,8 @@
   .login-icon { font-size: 48px; margin-bottom: 0.5rem; }
   .login-title { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; }
   .login-sub { font-size: 14px; color: var(--text2); max-width: 280px; line-height: 1.6; }
+  .google-signin-btn { display:flex; align-items:center; gap:10px; padding:10px 20px; background:#fff; color:#3c4043; border:none; border-radius:4px; font-size:14px; font-weight:500; cursor:pointer; margin-top:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+  .google-signin-btn:hover { background:#f8f8f8; box-shadow:0 2px 6px rgba(0,0,0,.4); }
 
   /* CARDS */
   .card {
@@ -320,29 +321,14 @@
   <div class="login-icon">🗺️</div>
   <div class="login-title">MapTap Tracker</div>
   <div class="login-sub">Identifícate con tu cuenta de Google para enviar resultados y ver el ranking.</div>
-  <div id="g_id_onload"
-    data-client_id="732837112670-vu67odbkbhb5ulllf6d0fuudq2a8n98j.apps.googleusercontent.com"
-    data-context="signin"
-    data-ux_mode="popup"
-    data-callback="onGoogleLogin"
-    data-auto_prompt="false">
-  </div>
-  <div class="g_id_signin"
-    data-type="standard"
-    data-shape="pill"
-    data-theme="outline"
-    data-text="signin_with"
-    data-size="large"
-    data-locale="es">
-  </div>
-  <button onclick="enterPreviewMode()" style="margin-top:1.5rem;background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;text-decoration:underline;">Ver demo sin login</button>
+  <button onclick="loginWithGoogle()" class="google-signin-btn">
+    <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+    Iniciar sesión con Google
+  </button>
+  <button onclick="enterPreviewMode()" style="margin-top:1rem;background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;text-decoration:underline;">Ver demo sin login</button>
 </div>
 
 <div id="app-view" style="display:none; flex-direction:column; flex:1;">
-  <div id="sheets-auth-notice" class="not-registered" style="display:none; margin:1rem 1rem 0;">
-    Se necesita acceso a Google Sheets para leer y guardar datos.
-    <button onclick="grantSheetsAccess()" style="margin-left:1rem;padding:0.3rem 0.8rem;cursor:pointer;">Dar acceso</button>
-  </div>
   <nav>
     <button class="active" onclick="switchTab('submit')">Enviar</button>
     <button onclick="switchTab('dashboard')">Dashboard</button>
@@ -412,6 +398,7 @@ const CLIENT_ID = '732837112670-vu67odbkbhb5ulllf6d0fuudq2a8n98j.apps.googleuser
 const SHEET_ID = '1yQGQHEmvvgB4EToJNRpZUE14Pedix3eqnD7_jVM0KRY';
 const SHEET_NAME = 'datos';
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+const REDIRECT_URI = location.origin + location.pathname.replace(/\/?(?:index\.html)?$/, '');
 
 const PLAYER_MAP = {
   'moran': 'Moran',
@@ -431,7 +418,6 @@ const PLAYER_COLORS = {
 };
 
 let accessToken = null;
-let tokenClient = null;
 let currentUser = null;
 let currentPlayer = null;
 let parsedResult = null;
@@ -439,44 +425,45 @@ let dashboardLoaded = false;
 let historyLoaded = false;
 
 // ─── AUTH ───────────────────────────────────────────────
-function onGoogleLogin(response) {
-  const payload = parseJwt(response.credential);
-  currentUser = {
-    name: payload.name,
-    email: payload.email,
-    picture: payload.picture,
-    given_name: payload.given_name,
-  };
-
-  currentPlayer = resolvePlayer(payload.name, payload.email, payload.given_name);
-
-  updateHeader();
-
-  tokenClient = google.accounts.oauth2.initTokenClient({
+function loginWithGoogle() {
+  const params = new URLSearchParams({
     client_id: CLIENT_ID,
-    scope: SCOPES,
-    callback: (tokenResponse) => {
-      if (tokenResponse.error) {
-        document.getElementById('sheets-auth-notice').style.display = 'block';
-        return;
-      }
-      accessToken = tokenResponse.access_token;
-      document.getElementById('sheets-auth-notice').style.display = 'none';
-    },
+    redirect_uri: REDIRECT_URI,
+    response_type: 'token id_token',
+    scope: 'openid email profile ' + SCOPES,
+    nonce: Math.random().toString(36).slice(2) + Date.now(),
+    include_granted_scopes: 'true',
   });
-  tokenClient.requestAccessToken({ prompt: '' });
+  location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
+}
 
+function handleOAuthCallback() {
+  if (!location.hash) return;
+  const params = new URLSearchParams(location.hash.slice(1));
+  const token = params.get('access_token');
+  const idToken = params.get('id_token');
+  if (!token) return;
+
+  history.replaceState(null, '', location.pathname);
+
+  if (idToken) {
+    try {
+      const payload = parseJwt(idToken);
+      currentUser = { name: payload.name, email: payload.email, picture: payload.picture, given_name: payload.given_name };
+      currentPlayer = resolvePlayer(payload.name, payload.email, payload.given_name);
+    } catch(e) { console.error('id_token parse error', e); }
+  }
+
+  accessToken = token;
+
+  if (!currentUser) return;
+  updateHeader();
   document.getElementById('login-view').style.display = 'none';
   document.getElementById('app-view').style.display = 'flex';
-
   if (!currentPlayer) {
     document.getElementById('not-registered').style.display = 'block';
     document.getElementById('submit-btn').disabled = true;
   }
-}
-
-function grantSheetsAccess() {
-  if (tokenClient) tokenClient.requestAccessToken({ prompt: 'consent' });
 }
 
 let previewMode = false;
@@ -630,15 +617,6 @@ function hideMsg() {
 }
 
 // ─── READ SHEET ───────────────────────────────────────────
-async function waitForToken(timeoutMs = 8000) {
-  if (accessToken) return;
-  const start = Date.now();
-  while (!accessToken) {
-    if (Date.now() - start > timeoutMs) throw new Error('Tiempo de espera agotado obteniendo token de acceso. Recarga e inicia sesión.');
-    await new Promise(r => setTimeout(r, 150));
-  }
-}
-
 async function readSheet() {
   if (previewMode) return [
     {fecha:'2026-05-14',jugador:'Moran',  r1:99,r2:98,r3:100,r4:97,r5:99,score:988},
@@ -652,7 +630,7 @@ async function readSheet() {
     {fecha:'2026-05-13',jugador:'Gonzalo',r1:90,r2:91,r3:93,r4:89,r5:91,score:930},
     {fecha:'2026-05-13',jugador:'Arias',  r1:96,r2:97,r3:98,r4:95,r5:97,score:975},
   ];
-  await waitForToken();
+  if (!accessToken) throw new Error('Sin autenticación — recarga e inicia sesión.');
   const res = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}`,
     { headers: { 'Authorization': 'Bearer ' + accessToken } }
@@ -863,6 +841,8 @@ async function loadHistory() {
   document.getElementById('history-loading').style.display = 'none';
   document.getElementById('history-content').style.display = 'block';
 }
+
+handleOAuthCallback();
 </script>
 </body>
 </html>

@@ -400,6 +400,14 @@ const SHEET_NAME = 'datos';
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 const REDIRECT_URI = location.origin + location.pathname.replace(/\/?(?:index\.html)?$/, '');
 
+const EMAIL_MAP = {
+  'j.moran.rodri@gmail.com':     'Moran',
+  'mgv3196@gmail.com':           'Mewis',
+  'gonzalopascual1996@gmail.com':'Gonzalo',
+  // 'email@gmail.com':           'Muñi',
+  // 'email@gmail.com':           'Arias',
+};
+
 const PLAYER_MAP = {
   'moran': 'Moran',
   'gonzalo': 'Gonzalo',
@@ -479,6 +487,7 @@ function enterPreviewMode() {
 }
 
 function resolvePlayer(name, email, givenName) {
+  if (EMAIL_MAP[email.toLowerCase()]) return EMAIL_MAP[email.toLowerCase()];
   const candidates = [name, email.split('@')[0], givenName].map(s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
   for (const c of candidates) {
     for (const [key, val] of Object.entries(PLAYER_MAP)) {

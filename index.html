@@ -628,19 +628,21 @@ async function submitResult() {
   hideMsg();
 
   const [r1, r2, r3, r4, r5] = parsedResult.rounds;
+  const payload = { fecha: parsedResult.fecha, jugador: currentPlayer, r1, r2, r3, r4, r5, score: parsedResult.score };
   try {
-    const res  = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      // Apps Script web apps do not answer CORS preflight OPTIONS requests.
-      // text/plain keeps this as a simple CORS request while preserving the JSON body.
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ fecha: parsedResult.fecha, jugador: currentPlayer, r1, r2, r3, r4, r5, score: parsedResult.score })
-    });
-    const json = await res.json();
-
-    if (json.duplicate) {
+    if (await resultExists(payload)) {
       showMsg('Este resultado ya estaba registrado.', true);
-    } else if (json.ok) {
+      return;
+    }
+
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+
+    if (await waitForSavedResult(payload)) {
       showMsg(`Resultado enviado. ${parsedResult.fecha.split('-').reverse().join('/')} · ${currentPlayer} · ${parsedResult.score} pts`, true);
       document.getElementById('result-input').value = '';
       document.getElementById('preview').classList.remove('visible');
@@ -651,14 +653,14 @@ async function submitResult() {
       winsChartInstance?.destroy();  winsChartInstance = null;
       cachedChartData = null;
     } else {
-      showMsg('Error al guardar: ' + (json.error || 'inténtalo de nuevo'), false);
+      showMsg('Enviado, pero no he podido confirmarlo en la hoja. Revisa el historial en unos segundos.', false);
     }
   } catch (e) {
-    showMsg('Error de conexión.', false);
+    showMsg('Error de conexión: ' + (e.message || 'no se pudo contactar con el servidor'), false);
+  } finally {
+    btn.textContent = 'Enviar resultado';
+    btn.disabled = false;
   }
-
-  btn.textContent = 'Enviar resultado';
-  btn.disabled = false;
 }
 
 function showMsg(text, ok) {
@@ -668,6 +670,34 @@ function showMsg(text, ok) {
 }
 function hideMsg() {
   document.getElementById('submit-msg').className = 'msg';
+}
+
+function sameResult(row, payload) {
+  return row.fecha === payload.fecha &&
+    row.jugador === payload.jugador &&
+    Number(row.r1) === Number(payload.r1) &&
+    Number(row.r2) === Number(payload.r2) &&
+    Number(row.r3) === Number(payload.r3) &&
+    Number(row.r4) === Number(payload.r4) &&
+    Number(row.r5) === Number(payload.r5) &&
+    Number(row.score) === Number(payload.score);
+}
+
+async function resultExists(payload) {
+  const data = await readSheet();
+  return data.some(row => sameResult(row, payload));
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForSavedResult(payload) {
+  for (let i = 0; i < 5; i++) {
+    await sleep(700);
+    if (await resultExists(payload)) return true;
+  }
+  return false;
 }
 
 // Convierte cualquier valor de fecha (ISO timestamp o string YYYY-MM-DD) a YYYY-MM-DD en zona horaria España

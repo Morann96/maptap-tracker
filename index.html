@@ -231,11 +231,12 @@
     background: var(--bg2);
     border: 0.5px solid var(--border);
     border-radius: var(--radius);
-    padding: 1rem;
+    padding: 1.25rem 1rem;
+    text-align: center;
   }
-  .metric-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-  .metric-value { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
-  .metric-sub { font-size: 12px; color: var(--text2); margin-top: 3px; }
+  .metric-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .metric-value { font-size: 30px; font-weight: 600; letter-spacing: -0.5px; }
+  .metric-sub { font-size: 13px; color: var(--text2); margin-top: 4px; }
 
   /* RANKING */
   .ranking-list { list-style: none; }
@@ -430,8 +431,8 @@
             <div class="card-title">Histórico de puntuaciones</div>
             <div style="display:flex;align-items:center;gap:6px">
               <div class="toggle-pill">
-                <button class="active" data-g="date" onclick="setChartGranularity('date')">Fecha</button>
-                <button data-g="month" onclick="setChartGranularity('month')">Mes</button>
+                <button class="active" data-g="date" onclick="setScoreGranularity('date')">Fecha</button>
+                <button data-g="month" onclick="setScoreGranularity('month')">Mes</button>
               </div>
               <button class="fullscreen-btn" id="score-fs-btn" onclick="toggleChartFullscreen('score')" title="Pantalla completa"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
             </div>
@@ -454,8 +455,8 @@
             <div class="card-title">Victorias acumuladas</div>
             <div style="display:flex;align-items:center;gap:6px">
               <div class="toggle-pill">
-                <button class="active" data-g="date" onclick="setChartGranularity('date')">Fecha</button>
-                <button data-g="month" onclick="setChartGranularity('month')">Mes</button>
+                <button class="active" data-g="date" onclick="setWinsGranularity('date')">Fecha</button>
+                <button data-g="month" onclick="setWinsGranularity('month')">Mes</button>
               </div>
               <button class="fullscreen-btn" id="wins-fs-btn" onclick="toggleChartFullscreen('wins')" title="Pantalla completa"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
             </div>
@@ -506,7 +507,8 @@ let dashboardLoaded = false;
 let historyLoaded = false;
 let historyData = [];
 let historySortDir = -1; // -1 = newest first, 1 = oldest first
-let chartGranularity = 'date';
+let scoreGranularity = 'date';
+let winsGranularity  = 'date';
 let scoreChartInstance = null;
 let winsChartInstance = null;
 let cachedChartData = null;
@@ -900,15 +902,20 @@ document.addEventListener('keydown', e => {
   });
 });
 
-function setChartGranularity(g) {
-  chartGranularity = g;
-  document.querySelectorAll('.toggle-pill button').forEach(b =>
+function setScoreGranularity(g) {
+  scoreGranularity = g;
+  document.querySelectorAll('#score-card .toggle-pill button').forEach(b =>
     b.classList.toggle('active', b.dataset.g === g)
   );
-  if (cachedChartData) {
-    renderScoreChart(cachedChartData);
-    renderWinsChart(cachedChartData);
-  }
+  if (cachedChartData) renderScoreChart(cachedChartData);
+}
+
+function setWinsGranularity(g) {
+  winsGranularity = g;
+  document.querySelectorAll('#wins-card .toggle-pill button').forEach(b =>
+    b.classList.toggle('active', b.dataset.g === g)
+  );
+  if (cachedChartData) renderWinsChart(cachedChartData);
 }
 
 function chartBaseOptions(extra = {}) {
@@ -917,7 +924,26 @@ function chartBaseOptions(extra = {}) {
     maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
     plugins: {
-      legend: { labels: { color: '#888', boxWidth: 12, font: { size: 11 } } },
+      legend: {
+        labels: { color: '#888', boxWidth: 12, font: { size: 11 } },
+        onClick(e, item, legend) {
+          const chart = legend.chart;
+          const idx = item.datasetIndex;
+          if (!chart.isDatasetVisible(idx)) {
+            // Jugador oculto → mostrarlo (añadir a la selección)
+            chart.show(idx);
+          } else {
+            const visibleCount = chart.data.datasets.filter((_, i) => chart.isDatasetVisible(i)).length;
+            if (visibleCount === 1) {
+              // Era el único visible → restaurar todos
+              chart.data.datasets.forEach((_, i) => chart.show(i));
+            } else {
+              // Había varios visibles → solo este (ocultar el resto)
+              chart.data.datasets.forEach((_, i) => { if (i !== idx) chart.hide(i); });
+            }
+          }
+        },
+      },
       tooltip: { backgroundColor: '#1a1a1a', borderColor: '#333', borderWidth: 1, titleColor: '#ccc', bodyColor: '#aaa' },
     },
     scales: {
@@ -973,10 +999,22 @@ function onRangeInput(which) {
 
 function renderScoreChart(data) {
   cachedChartData = data;
+
+  // Captura el estado de visibilidad del chart actual ANTES de calcular los datasets
+  if (scoreChartInstance) {
+    scoreHiddenPlayers = new Set(
+      scoreChartInstance.data.datasets
+        .filter((ds, i) => !scoreChartInstance.isDatasetVisible(i))
+        .map(ds => ds.label)
+    );
+    scoreChartInstance.destroy();
+    scoreChartInstance = null;
+  }
+
   const players = ['Moran','Gonzalo','Mewis','Muñi','Arias'].filter(p => data.some(r => r.jugador === p));
 
   let labels, datasets;
-  if (chartGranularity === 'date') {
+  if (scoreGranularity === 'date') {
     const allDates = [...new Set(data.map(r => r.fecha))].sort();
     initDateRange(allDates);
     document.getElementById('chart-date-range').style.display = '';
@@ -994,7 +1032,7 @@ function renderScoreChart(data) {
     });
   } else {
     document.getElementById('chart-date-range').style.display = 'none';
-    const keys = [...new Set(data.map(r => r.fecha.slice(0,7)))].sort();
+    const keys = [...new Set(data.map(r => r.fecha.slice(0, 7)))].sort();
     labels = keys.map(k => {
       const [y, m] = k.split('-');
       return `${MONTHS_ES[parseInt(m)-1]} ${y.slice(2)}`;
@@ -1014,14 +1052,6 @@ function renderScoreChart(data) {
     });
   }
 
-  if (scoreChartInstance) {
-    scoreHiddenPlayers = new Set(
-      scoreChartInstance.data.datasets
-        .filter((ds, i) => !scoreChartInstance.isDatasetVisible(i))
-        .map(ds => ds.label)
-    );
-    scoreChartInstance.destroy();
-  }
   scoreChartInstance = new Chart(
     document.getElementById('score-chart'),
     { type: 'line', data: { labels, datasets }, options: chartBaseOptions() }
@@ -1029,6 +1059,17 @@ function renderScoreChart(data) {
 }
 
 function renderWinsChart(data) {
+  // Captura el estado de visibilidad del chart actual ANTES de calcular los datasets
+  if (winsChartInstance) {
+    winsHiddenPlayers = new Set(
+      winsChartInstance.data.datasets
+        .filter((ds, i) => !winsChartInstance.isDatasetVisible(i))
+        .map(ds => ds.label)
+    );
+    winsChartInstance.destroy();
+    winsChartInstance = null;
+  }
+
   const players = ['Moran','Gonzalo','Mewis','Muñi','Arias'].filter(p => data.some(r => r.jugador === p));
 
   const byDate = {};
@@ -1041,7 +1082,7 @@ function renderWinsChart(data) {
 
   let labels, datasets;
 
-  if (chartGranularity === 'date') {
+  if (winsGranularity === 'date') {
     const allDates = [...new Set(data.map(r => r.fecha))].sort();
     const dateDates = allDates.slice(chartRangeMin, chartRangeMax + 1);
     labels = dateDates.map(d => d.split('-').reverse().join('/'));
@@ -1086,14 +1127,6 @@ function renderWinsChart(data) {
     });
   }
 
-  if (winsChartInstance) {
-    winsHiddenPlayers = new Set(
-      winsChartInstance.data.datasets
-        .filter((ds, i) => !winsChartInstance.isDatasetVisible(i))
-        .map(ds => ds.label)
-    );
-    winsChartInstance.destroy();
-  }
   winsChartInstance = new Chart(
     document.getElementById('wins-line-chart'),
     { type: 'line', data: { labels, datasets }, options: winsOpts }

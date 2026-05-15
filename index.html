@@ -231,10 +231,10 @@
     background: var(--bg2);
     border: 0.5px solid var(--border);
     border-radius: var(--radius);
-    padding: 1.25rem 1rem;
+    padding: 0.85rem 1rem;
     text-align: center;
   }
-  .metric-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .metric-label { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
   .metric-value { font-size: 30px; font-weight: 600; letter-spacing: -0.5px; }
   .metric-sub { font-size: 13px; color: var(--text2); margin-top: 4px; }
 
@@ -272,7 +272,7 @@
 
   /* HISTORY TABLE */
   .history { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .history th { color: var(--text3); font-weight: 500; text-align: left; padding: 6px 8px; border-bottom: 0.5px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .history th { color: var(--text3); font-weight: 500; text-align: center; padding: 6px 8px; border-bottom: 0.5px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
   .card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
   .card-header .card-title { margin-bottom:0; }
   .toggle-pill { display:flex; background:var(--bg3); border-radius:6px; padding:2px; gap:2px; }
@@ -284,6 +284,9 @@
   .card.chart-fullscreen { position:fixed; inset:0; z-index:9999; border-radius:0 !important; display:flex; flex-direction:column; overflow:hidden; margin:0; }
   .card.chart-fullscreen .chart-wrap { flex:1; height:auto !important; min-height:0; }
   .history th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  .history th.sortable.wrap { white-space: normal; text-align: center; min-width: 44px; }
+  .history.compact td { padding: 6px 5px; }
+  .history.compact th.sortable.wrap { min-width: 34px; }
   .history th.sortable:hover { color: var(--text2); }
   .history th.sort-active { color: var(--accent); }
   .month-filter { background:var(--bg3); border:0.5px solid var(--border2); color:var(--text); border-radius:6px; padding:4px 10px; font-size:12px; cursor:pointer; outline:none; }
@@ -311,12 +314,20 @@
   .date-range-track { position:absolute; top:50%; transform:translateY(-50%); width:100%; height:3px; background:var(--bg3); border-radius:2px; }
   .date-range-fill  { position:absolute; height:100%; background:var(--accent); opacity:0.5; border-radius:2px; }
   .date-range-labels { display:flex; justify-content:space-between; font-size:10px; color:var(--text3); margin-top:3px; }
-  .history td { padding: 10px 8px; border-bottom: 0.5px solid var(--border); color: var(--text2); }
+  .history td { padding: 10px 8px; border-bottom: 0.5px solid var(--border); color: var(--text2); text-align: center; }
   .history td:first-child { color: var(--text); font-weight: 500; }
   .history tr:last-child td { border-bottom: none; }
   .winner-badge {
     background: rgba(74,222,128,0.15);
     color: var(--accent);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .loser-badge {
+    background: rgba(248,113,113,0.15);
+    color: var(--danger);
     border-radius: 4px;
     padding: 2px 6px;
     font-size: 11px;
@@ -343,6 +354,14 @@
     color: var(--warning);
     line-height: 1.6;
   }
+
+  /* RULES */
+  .rules-item { display: flex; gap: 12px; padding: 9px 0; border-bottom: 0.5px solid var(--border); font-size: 13px; line-height: 1.5; }
+  .rules-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .rules-key { color: var(--text); font-weight: 600; min-width: 130px; flex-shrink: 0; }
+  .rules-val { color: var(--text2); }
+  .rules-section-title { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin: 1rem 0 0.5rem; }
+  .rules-section-title:first-child { margin-top: 0; }
 
   @media (max-width: 480px) {
     main { padding: 1rem; }
@@ -380,8 +399,10 @@
 <div id="app-view" style="display:none; flex-direction:column; flex:1;">
   <nav>
     <button class="active" onclick="switchTab('submit')">Enviar</button>
-    <button onclick="switchTab('dashboard')">Dashboard</button>
+    <button onclick="switchTab('estadisticas')">Estadísticas</button>
+    <button onclick="switchTab('rachas')">Rachas</button>
     <button onclick="switchTab('history')">Historial</button>
+    <button onclick="switchTab('reglas')">Reglas</button>
   </nav>
   <main>
 
@@ -415,12 +436,13 @@
     </div>
 
     <!-- DASHBOARD -->
-    <div id="tab-dashboard" class="section">
-      <div class="loading" id="dashboard-loading">
+    <!-- ESTADÍSTICAS -->
+    <div id="tab-estadisticas" class="section">
+      <div class="loading" id="estadisticas-loading">
         <div class="spinner"></div>
         Cargando datos...
       </div>
-      <div id="dashboard-content" style="display:none">
+      <div id="estadisticas-content" style="display:none">
         <div class="metrics" id="metrics"></div>
         <div class="card">
           <div class="card-title">Estadísticas</div>
@@ -466,6 +488,99 @@
       </div>
     </div>
 
+    <!-- RACHAS -->
+    <div id="tab-rachas" class="section">
+      <div class="loading" id="rachas-loading">
+        <div class="spinner"></div>
+        Cargando rachas...
+      </div>
+      <div id="rachas-content" style="display:none">
+        <div class="metrics" id="streak-highlights"></div>
+        <div class="card">
+          <div class="card-title">Rachas competitivas</div>
+          <table class="history compact" id="streaks-competitive-table"></table>
+        </div>
+        <div class="card">
+          <div class="card-title">Rachas de actividad</div>
+          <table class="history" id="streaks-activity-table"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- REGLAS -->
+    <div id="tab-reglas" class="section">
+
+      <div class="card">
+        <div class="card-title">Ganador y perdedor del día</div>
+        <div class="rules-item">
+          <span class="rules-key">🏆 Ganador</span>
+          <span class="rules-val">El jugador con la mayor puntuación del día. En caso de empate, gana quien registró su resultado primero.</span>
+        </div>
+        <div class="rules-item">
+          <span class="rules-key">💀 Perdedor</span>
+          <span class="rules-val">El jugador con la menor puntuación del día. En caso de empate, pierde quien registró su resultado último. Solo se asigna perdedor si participan 2 o más jugadores.</span>
+        </div>
+        <div class="rules-item">
+          <span class="rules-key">Solo un jugador</span>
+          <span class="rules-val">Gana automáticamente. No se asigna perdedor.</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Cálculo de rachas</div>
+        <div class="rules-item">
+          <span class="rules-key">Inicio</span>
+          <span class="rules-val">Las rachas de cada jugador empiezan a contar desde su primera partida registrada, no desde el inicio del historial.</span>
+        </div>
+        <div class="rules-item">
+          <span class="rules-key">No jugar</span>
+          <span class="rules-val">Cuenta como derrota (<em>cobardía estadística</em>): aumenta las rachas de loss y no-win, y rompe las de win, no-loss y días jugando.</span>
+        </div>
+        <div class="rules-item">
+          <span class="rules-key">Victoria</span>
+          <span class="rules-val">Suma a win y no-loss. Resetea loss y no-win.</span>
+        </div>
+        <div class="rules-item">
+          <span class="rules-key">Derrota</span>
+          <span class="rules-val">Suma a loss y no-win. Resetea win y no-loss.</span>
+        </div>
+        <div class="rules-item">
+          <span class="rules-key">Posición intermedia</span>
+          <span class="rules-val">Ni ganó ni perdió el día. Resetea win y loss. Suma a no-win y no-loss.</span>
+        </div>
+        <div class="rules-item">
+          <span class="rules-key">Días jugando</span>
+          <span class="rules-val">Cuenta días naturales consecutivos participando. Un día sin jugar rompe la racha.</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Tabla Estadísticas</div>
+        <div class="rules-item"><span class="rules-key">Games</span><span class="rules-val">Total de partidas jugadas.</span></div>
+        <div class="rules-item"><span class="rules-key">Record</span><span class="rules-val">Victorias y derrotas en formato <em>X W – Y L</em>. Ordenar por Record aplica el criterio: % victorias → media → victorias → mejor score → partidas.</span></div>
+        <div class="rules-item"><span class="rules-key">Media</span><span class="rules-val">Puntuación media sobre todas las partidas.</span></div>
+        <div class="rules-item"><span class="rules-key">Best</span><span class="rules-val">Mejor puntuación registrada.</span></div>
+        <div class="rules-item"><span class="rules-key">%Wins</span><span class="rules-val">Porcentaje de victorias sobre el total de partidas jugadas.</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Tabla Rachas competitivas</div>
+        <div class="rules-item"><span class="rules-key">Win max / act</span><span class="rules-val">Racha histórica máxima / actual de victorias consecutivas.</span></div>
+        <div class="rules-item"><span class="rules-key">Loss max / act</span><span class="rules-val">Racha histórica máxima / actual de derrotas consecutivas.</span></div>
+        <div class="rules-item"><span class="rules-key">No-win max / act</span><span class="rules-val">Racha histórica / actual de días sin ganar (incluye derrotas, posiciones intermedias y días sin jugar).</span></div>
+        <div class="rules-item"><span class="rules-key">No-loss max / act</span><span class="rules-val">Racha histórica / actual de días sin perder (victorias y posiciones intermedias, nunca días sin jugar).</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Tabla Rachas de actividad</div>
+        <div class="rules-item"><span class="rules-key">Días max / act</span><span class="rules-val">Racha histórica máxima / actual de días consecutivos jugando.</span></div>
+        <div class="rules-item"><span class="rules-key">Partidas</span><span class="rules-val">Total de partidas registradas.</span></div>
+        <div class="rules-item"><span class="rules-key">Primera partida</span><span class="rules-val">Fecha de la primera partida registrada del jugador.</span></div>
+        <div class="rules-item"><span class="rules-key">Última partida</span><span class="rules-val">Fecha de la última partida registrada.</span></div>
+      </div>
+
+    </div>
+
     <!-- HISTORY -->
     <div id="tab-history" class="section">
       <div class="loading" id="history-loading">
@@ -503,8 +618,10 @@ const PLAYER_COLORS = {
 
 let currentPlayer = null;
 let parsedResult = null;
-let dashboardLoaded = false;
+let estadisticasLoaded = false;
+let rachasLoaded = false;
 let historyLoaded = false;
+let cachedStreaks = null;
 let historyData = [];
 let historySortDir = -1; // -1 = newest first, 1 = oldest first
 let scoreGranularity = 'date';
@@ -533,7 +650,7 @@ function logout() {
   localStorage.removeItem(PLAYER_KEY);
   currentPlayer = null;
   parsedResult = null;
-  dashboardLoaded = false; historyLoaded = false;
+  estadisticasLoaded = false; rachasLoaded = false; historyLoaded = false; cachedStreaks = null; cachedChartData = null;
   historyData = []; historySortDir = -1;
   scoreChartInstance?.destroy(); scoreChartInstance = null;
   winsChartInstance?.destroy();  winsChartInstance = null;
@@ -568,7 +685,8 @@ function switchTab(tab) {
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   event.target.classList.add('active');
-  if (tab === 'dashboard' && !dashboardLoaded) loadDashboard();
+  if (tab === 'estadisticas' && !estadisticasLoaded) loadEstadisticas();
+  if (tab === 'rachas' && !rachasLoaded) loadRachas();
   if (tab === 'history' && !historyLoaded) loadHistory();
 }
 
@@ -649,11 +767,11 @@ async function submitResult() {
       document.getElementById('result-input').value = '';
       document.getElementById('preview').classList.remove('visible');
       parsedResult = null;
-      dashboardLoaded = false; historyLoaded = false;
+      estadisticasLoaded = false; rachasLoaded = false; historyLoaded = false;
+      cachedStreaks = null; cachedChartData = null;
       historyData = []; historySortDir = -1;
       scoreChartInstance?.destroy(); scoreChartInstance = null;
       winsChartInstance?.destroy();  winsChartInstance = null;
-      cachedChartData = null;
     } else {
       showMsg('Enviado, pero no he podido confirmarlo en la hoja. Revisa el historial en unos segundos.', false);
     }
@@ -736,33 +854,62 @@ async function readSheet() {
   }));
 }
 
-// ─── DASHBOARD ───────────────────────────────────────────
-async function loadDashboard() {
-  document.getElementById('dashboard-loading').style.display = 'block';
-  document.getElementById('dashboard-content').style.display = 'none';
+// ─── CARGA DE DATOS ──────────────────────────────────────
+async function fetchAndCacheData() {
+  // Carga los datos del sheet y los cachea si aún no están disponibles
+  if (!cachedChartData) {
+    cachedChartData = await readSheet();
+    cachedStreaks = computeStreaks(cachedChartData, PLAYERS);
+  }
+  return { data: cachedChartData, streaks: cachedStreaks };
+}
+
+async function loadEstadisticas() {
+  document.getElementById('estadisticas-loading').style.display = 'block';
+  document.getElementById('estadisticas-content').style.display = 'none';
 
   try {
-    const data = await readSheet();
+    const { data, streaks } = await fetchAndCacheData();
     const stats = computeStats(data);
     renderMetrics(stats, data);
     renderStatsTable(stats, data);
     renderScoreChart(data);
     renderWinsChart(data);
-    dashboardLoaded = true;
+    estadisticasLoaded = true;
   } catch(e) {
-    console.error('loadDashboard error:', e);
-    document.getElementById('dashboard-loading').innerHTML = `<p style="color:var(--danger)">Error cargando datos: ${e.message}</p>`;
+    console.error('loadEstadisticas error:', e);
+    document.getElementById('estadisticas-loading').innerHTML = `<p style="color:var(--danger)">Error cargando datos: ${e.message}</p>`;
     return;
   }
 
-  document.getElementById('dashboard-loading').style.display = 'none';
-  document.getElementById('dashboard-content').style.display = 'block';
+  document.getElementById('estadisticas-loading').style.display = 'none';
+  document.getElementById('estadisticas-content').style.display = 'block';
+}
+
+async function loadRachas() {
+  document.getElementById('rachas-loading').style.display = 'block';
+  document.getElementById('rachas-content').style.display = 'none';
+
+  try {
+    const { data, streaks } = await fetchAndCacheData();
+    renderStreakHighlights(streaks);
+    renderStreaksCompetitiveTable(streaks, data);
+    renderStreaksActivityTable(streaks, data);
+    rachasLoaded = true;
+  } catch(e) {
+    console.error('loadRachas error:', e);
+    document.getElementById('rachas-loading').innerHTML = `<p style="color:var(--danger)">Error cargando rachas: ${e.message}</p>`;
+    return;
+  }
+
+  document.getElementById('rachas-loading').style.display = 'none';
+  document.getElementById('rachas-content').style.display = 'block';
 }
 
 function computeStats(data) {
   const players = ['Moran', 'Gonzalo', 'Mewis', 'Muñi', 'Arias'];
   const stats = {};
-  players.forEach(p => stats[p] = { wins: 0, scores: [], best: 0, entries: 0 });
+  players.forEach(p => stats[p] = { wins: 0, losses: 0, scores: [], best: 0, entries: 0 });
 
   const byDate = {};
   data.forEach(r => {
@@ -771,8 +918,21 @@ function computeStats(data) {
   });
 
   Object.values(byDate).forEach(entries => {
+    // Ganador: max score; empate = primero en aparición
     const winner = entries.reduce((a, b) => a.score > b.score ? a : b);
     if (stats[winner.jugador]) stats[winner.jugador].wins++;
+
+    // Perdedor: min score; empate = último en aparición. Solo con ≥2 jugadores
+    if (entries.length > 1) {
+      const minScore = Math.min(...entries.map(e => e.score));
+      for (let i = entries.length - 1; i >= 0; i--) {
+        if (entries[i].score === minScore) {
+          if (stats[entries[i].jugador]) stats[entries[i].jugador].losses++;
+          break;
+        }
+      }
+    }
+
     entries.forEach(e => {
       if (stats[e.jugador]) {
         stats[e.jugador].scores.push(e.score);
@@ -790,12 +950,129 @@ function computeStats(data) {
   return stats;
 }
 
+function computeStreaks(data, allPlayers) {
+  const streaks = {};
+  allPlayers.forEach(p => streaks[p] = {
+    maxWinStreak: 0, currentWinStreak: 0,
+    maxLoseStreak: 0, currentLoseStreak: 0,
+    maxNoWinStreak: 0, currentNoWinStreak: 0,
+    maxNoLoseStreak: 0, currentNoLoseStreak: 0,
+    maxDayStreak: 0, currentDayStreak: 0,
+    totalGames: 0,
+    firstGameDate: null,
+    lastGameDate: null
+  });
+
+  // Agrupar por fecha
+  const byDate = {};
+  data.forEach(r => {
+    if (!byDate[r.fecha]) byDate[r.fecha] = [];
+    byDate[r.fecha].push(r);
+  });
+
+  // Primera partida de cada jugador — las rachas empiezan desde aquí
+  const firstGameDate = {};
+  allPlayers.forEach(p => {
+    const games = data.filter(r => r.jugador === p);
+    if (games.length) {
+      firstGameDate[p] = games.map(r => r.fecha).sort()[0];
+      streaks[p].firstGameDate = firstGameDate[p];
+    }
+  });
+
+  const sortedDates = Object.keys(byDate).sort();
+  let lastDatePerPlayer = {};
+
+  sortedDates.forEach((fecha) => {
+    const entries = byDate[fecha];
+
+    // Ganador: max score; empate → primero en aparición (reduce toma el primero igual)
+    const winner = entries.reduce((a, b) => a.score > b.score ? a : b);
+
+    // Perdedor: min score; empate → último en aparición. Solo con ≥2 jugadores
+    let loser = null;
+    if (entries.length > 1) {
+      const minScore = Math.min(...entries.map(e => e.score));
+      for (let i = entries.length - 1; i >= 0; i--) {
+        if (entries[i].score === minScore) { loser = entries[i]; break; }
+      }
+    }
+
+    const playersWhoParticipated = new Set(entries.map(e => e.jugador));
+
+    allPlayers.forEach(p => {
+      // No contar antes de que el jugador haya jugado su primera partida
+      if (!firstGameDate[p] || fecha < firstGameDate[p]) return;
+
+      const participated = playersWhoParticipated.has(p);
+
+      if (participated) {
+        streaks[p].totalGames++;
+        streaks[p].lastGameDate = fecha;
+
+        // Racha de días consecutivos jugando
+        if (!lastDatePerPlayer[p]) {
+          streaks[p].currentDayStreak = 1;
+        } else {
+          const diff = Math.floor(
+            (new Date(fecha) - new Date(lastDatePerPlayer[p])) / 86400000
+          );
+          streaks[p].currentDayStreak = diff === 1 ? streaks[p].currentDayStreak + 1 : 1;
+        }
+        streaks[p].maxDayStreak = Math.max(streaks[p].maxDayStreak, streaks[p].currentDayStreak);
+        lastDatePerPlayer[p] = fecha;
+
+        if (p === winner.jugador) {
+          // ── VICTORIA ──────────────────────────────────────────────
+          streaks[p].currentWinStreak++;
+          streaks[p].maxWinStreak    = Math.max(streaks[p].maxWinStreak, streaks[p].currentWinStreak);
+          streaks[p].currentLoseStreak  = 0;
+          streaks[p].currentNoWinStreak = 0;
+          streaks[p].currentNoLoseStreak++;
+          streaks[p].maxNoLoseStreak = Math.max(streaks[p].maxNoLoseStreak, streaks[p].currentNoLoseStreak);
+
+        } else if (loser && p === loser.jugador) {
+          // ── DERROTA ───────────────────────────────────────────────
+          streaks[p].currentWinStreak = 0;
+          streaks[p].currentLoseStreak++;
+          streaks[p].maxLoseStreak   = Math.max(streaks[p].maxLoseStreak, streaks[p].currentLoseStreak);
+          streaks[p].currentNoWinStreak++;
+          streaks[p].maxNoWinStreak  = Math.max(streaks[p].maxNoWinStreak, streaks[p].currentNoWinStreak);
+          streaks[p].currentNoLoseStreak = 0;
+
+        } else {
+          // ── NI GANÓ NI PERDIÓ (medio del tablón) ──────────────────
+          streaks[p].currentWinStreak  = 0;
+          streaks[p].currentLoseStreak = 0;
+          streaks[p].currentNoWinStreak++;
+          streaks[p].maxNoWinStreak  = Math.max(streaks[p].maxNoWinStreak, streaks[p].currentNoWinStreak);
+          streaks[p].currentNoLoseStreak++;
+          streaks[p].maxNoLoseStreak = Math.max(streaks[p].maxNoLoseStreak, streaks[p].currentNoLoseStreak);
+        }
+
+      } else {
+        // ── NO PARTICIPÓ (cobardía estadística) ───────────────────
+        streaks[p].currentWinStreak    = 0;   // Se rompe racha victorias
+        streaks[p].currentLoseStreak++;        // Aumenta racha derrotas
+        streaks[p].maxLoseStreak  = Math.max(streaks[p].maxLoseStreak, streaks[p].currentLoseStreak);
+        streaks[p].currentNoWinStreak++;       // Aumenta sin ganar
+        streaks[p].maxNoWinStreak = Math.max(streaks[p].maxNoWinStreak, streaks[p].currentNoWinStreak);
+        streaks[p].currentNoLoseStreak = 0;   // Se rompe sin perder
+        streaks[p].currentDayStreak    = 0;   // Se rompe días jugando
+      }
+    });
+  });
+
+  return streaks;
+}
+
 function renderMetrics(stats, data) {
   const days = new Set(data.map(r => r.fecha)).size;
   const leader = Object.entries(stats).sort((a,b) => b[1].wins - a[1].wins)[0];
   const bestAvg = Object.entries(stats).sort((a,b) => b[1].avg - a[1].avg)[0];
   const recordEntry = data.length ? data.reduce((a, b) => a.score > b.score ? a : b) : null;
 
+  // Tarjetas originales
   document.getElementById('metrics').innerHTML = `
     <div class="metric">
       <div class="metric-label">Días jugados</div>
@@ -817,37 +1094,85 @@ function renderMetrics(stats, data) {
       <div class="metric-sub">${recordEntry ? recordEntry.jugador : ''}</div>
     </div>
   `;
+
 }
 
-let sortState = { key: 'wins', dir: -1 };
+function renderStreakHighlights(streaks) {
+  const dynasty = Object.entries(streaks).reduce((a, b) =>
+    b[1].maxWinStreak > a[1].maxWinStreak ? b : a);
+  const microwave = Object.entries(streaks).reduce((a, b) =>
+    b[1].currentWinStreak > a[1].currentWinStreak ? b : a);
+  const activityLeader = Object.entries(streaks).reduce((a, b) =>
+    b[1].maxDayStreak > a[1].maxDayStreak ? b : a);
+  const loseKing = Object.entries(streaks).reduce((a, b) =>
+    b[1].maxLoseStreak > a[1].maxLoseStreak ? b : a);
+
+  document.getElementById('streak-highlights').innerHTML = `
+    <div class="metric">
+      <div class="metric-label">Dinastía</div>
+      <div class="metric-value">${dynasty ? dynasty[0] : '—'}</div>
+      <div class="metric-sub">${dynasty ? dynasty[1].maxWinStreak + ' victorias' : ''}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Microondas</div>
+      <div class="metric-value">${microwave ? microwave[0] : '—'}</div>
+      <div class="metric-sub">${microwave && microwave[1].currentWinStreak > 0 ? microwave[1].currentWinStreak + ' en marcha' : 'en pausa'}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Racha de actividad</div>
+      <div class="metric-value">${activityLeader ? activityLeader[0] : '—'}</div>
+      <div class="metric-sub">${activityLeader ? activityLeader[1].maxDayStreak + ' días' : ''}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Pozo histórico</div>
+      <div class="metric-value">${loseKing ? loseKing[0] : '—'}</div>
+      <div class="metric-sub">${loseKing ? loseKing[1].maxLoseStreak + ' derrotas' : ''}</div>
+    </div>
+  `;
+}
+
+let sortState = { key: 'record', dir: 1 };
 let cachedStatsTable = null;
 
 function renderStatsTable(stats, data) {
   cachedStatsTable = stats;
   const cols = [
-    { key: 'name',  label: 'Jugador' },
-    { key: 'games', label: 'Games'   },
-    { key: 'avg',   label: 'Media'   },
-    { key: 'best',  label: 'Best'    },
-    { key: 'wins',  label: 'Wins'    },
-    { key: 'pct',   label: '%Wins'   },
+    { key: 'name',   label: 'Jugador' },
+    { key: 'games',  label: 'Games'   },
+    { key: 'record', label: 'Record'  },
+    { key: 'avg',    label: 'Media'   },
+    { key: 'best',   label: 'Best'    },
+    { key: 'pct',    label: '%Wins'   },
   ];
 
   const rows = Object.entries(stats)
     .filter(([, s]) => s.entries > 0)
     .map(([name, s]) => ({
       name,
-      games: s.entries,
-      avg:   s.avg,
-      best:  s.best,
-      wins:  s.wins,
-      pct:   Math.round(s.wins / s.entries * 100),
+      games:  s.entries,
+      wins:   s.wins,
+      losses: s.losses,
+      record: `${s.wins} W - ${s.losses} L`,
+      avg:    s.avg,
+      best:   s.best,
+      pct:    Math.round(s.wins / s.entries * 100),
     }));
 
   const { key, dir } = sortState;
-  rows.sort((a, b) => key === 'name'
-    ? dir * a.name.localeCompare(b.name)
-    : dir * (a[key] - b[key]));
+  rows.sort((a, b) => {
+    if (key === 'name') return dir * a.name.localeCompare(b.name);
+    if (key === 'record') {
+      // Multi-criterio: %Wins → Media → Wins → Best → Games
+      return dir * (
+        (b.pct   - a.pct)   ||
+        (b.avg   - a.avg)   ||
+        (b.wins  - a.wins)  ||
+        (b.best  - a.best)  ||
+        (b.games - a.games)
+      );
+    }
+    return dir * (a[key] - b[key]);
+  });
 
   const thead = `<thead><tr>${cols.map(c => {
     const active = c.key === sortState.key;
@@ -860,9 +1185,9 @@ function renderStatsTable(stats, data) {
     return `<tr>
       <td style="color:${fg}">${r.name}</td>
       <td>${r.games}</td>
+      <td style="color:var(--text2);font-size:12px">${r.record}</td>
       <td>${r.avg}</td>
       <td>${r.best}</td>
-      <td>${r.wins}</td>
       <td>${r.pct}%</td>
     </tr>`;
   }).join('')}</tbody>`;
@@ -875,6 +1200,111 @@ function sortStatsTable(key) {
     ? { key, dir: sortState.dir * -1 }
     : { key, dir: key === 'name' ? 1 : -1 };
   if (cachedStatsTable) renderStatsTable(cachedStatsTable);
+}
+
+let streaksSortState = { key: 'maxWin', dir: -1 };
+
+function renderStreaksCompetitiveTable(streaks, data) {
+  cachedStreaks = streaks;
+  const cols = [
+    { key: 'name', label: 'Jugador' },
+    { key: 'maxWin', label: 'Win max' },
+    { key: 'currWin', label: 'Win act' },
+    { key: 'maxLose', label: 'Loss max' },
+    { key: 'currLose', label: 'Loss act' },
+    { key: 'maxNoWin', label: 'No-win max' },
+    { key: 'currNoWin', label: 'No-win act' },
+    { key: 'maxNoLose', label: 'No-loss max' },
+    { key: 'currNoLose', label: 'No-loss act' },
+  ];
+
+  const rows = Object.entries(streaks).map(([name, s]) => ({
+    name,
+    maxWin: s.maxWinStreak,
+    currWin: s.currentWinStreak,
+    maxLose: s.maxLoseStreak,
+    currLose: s.currentLoseStreak,
+    maxNoWin: s.maxNoWinStreak,
+    currNoWin: s.currentNoWinStreak,
+    maxNoLose: s.maxNoLoseStreak,
+    currNoLose: s.currentNoLoseStreak,
+  }));
+
+  const { key, dir } = streaksSortState;
+  rows.sort((a, b) => key === 'name'
+    ? dir * a.name.localeCompare(b.name)
+    : dir * (a[key] - b[key]));
+
+  const thead = `<thead><tr>${cols.map(c => {
+    const active = c.key === streaksSortState.key;
+    const arrow = active ? (streaksSortState.dir === -1 ? ' ▼' : ' ▲') : '';
+    const wrapClass = c.key !== 'name' ? ' wrap' : '';
+    return `<th class="sortable${wrapClass}${active ? ' sort-active' : ''}" onclick="sortStreaksCompetitiveTable('${c.key}')">${c.label}${arrow}</th>`;
+  }).join('')}</tr></thead>`;
+
+  const tbody = `<tbody>${rows.map(r => {
+    const fg = PLAYER_COLORS[r.name]?.fg || 'var(--text)';
+    return `<tr>
+      <td style="color:${fg}">${r.name}</td>
+      <td>${r.maxWin}</td>
+      <td>${r.currWin}</td>
+      <td>${r.maxLose}</td>
+      <td>${r.currLose}</td>
+      <td>${r.maxNoWin}</td>
+      <td>${r.currNoWin}</td>
+      <td>${r.maxNoLose}</td>
+      <td>${r.currNoLose}</td>
+    </tr>`;
+  }).join('')}</tbody>`;
+
+  document.getElementById('streaks-competitive-table').innerHTML = thead + tbody;
+}
+
+function sortStreaksCompetitiveTable(key) {
+  streaksSortState = streaksSortState.key === key
+    ? { key, dir: streaksSortState.dir * -1 }
+    : { key, dir: key === 'name' ? 1 : -1 };
+  if (cachedStreaks) renderStreaksCompetitiveTable(cachedStreaks);
+}
+
+function renderStreaksActivityTable(streaks, data) {
+  const cols = [
+    { key: 'name', label: 'Jugador' },
+    { key: 'maxDays', label: 'Días max' },
+    { key: 'currDays', label: 'Días actual' },
+    { key: 'totalGames', label: 'Partidas' },
+    { key: 'firstGame', label: 'Primera partida' },
+    { key: 'lastGame', label: 'Última partida' },
+  ];
+
+  const rows = Object.entries(streaks).map(([name, s]) => ({
+    name,
+    maxDays: s.maxDayStreak,
+    currDays: s.currentDayStreak,
+    totalGames: s.totalGames,
+    firstGame: s.firstGameDate ? s.firstGameDate.split('-').reverse().join('/') : '—',
+    lastGame: s.lastGameDate ? s.lastGameDate.split('-').reverse().join('/') : '—',
+  }));
+
+  rows.sort((a, b) => a.name.localeCompare(b.name));
+
+  const thead = `<thead><tr>${cols.map(c =>
+    `<th>${c.label}</th>`
+  ).join('')}</tr></thead>`;
+
+  const tbody = `<tbody>${rows.map(r => {
+    const fg = PLAYER_COLORS[r.name]?.fg || 'var(--text)';
+    return `<tr>
+      <td style="color:${fg}">${r.name}</td>
+      <td>${r.maxDays}</td>
+      <td>${r.currDays}</td>
+      <td>${r.totalGames}</td>
+      <td style="color:var(--text2);font-size:12px">${r.firstGame}</td>
+      <td style="color:var(--text2);font-size:12px">${r.lastGame}</td>
+    </tr>`;
+  }).join('')}</tbody>`;
+
+  document.getElementById('streaks-activity-table').innerHTML = thead + tbody;
 }
 
 // ─── CHARTS ──────────────────────────────────────────────
@@ -1156,11 +1586,25 @@ function renderHistoryTable() {
   dates.forEach(fecha => {
     const entries = byDate[fecha];
     const maxScore = Math.max(...entries.map(e => e.score));
+
+    // Perdedor: min score; empate = último en aparición. Solo con ≥2 jugadores
+    let loserJugador = null;
+    if (entries.length > 1) {
+      const minScore = Math.min(...entries.map(e => e.score));
+      for (let i = entries.length - 1; i >= 0; i--) {
+        if (entries[i].score === minScore) { loserJugador = entries[i].jugador; break; }
+      }
+    }
+
     [...entries].sort((a, b) => b.score - a.score).forEach(e => {
       const isWinner = e.score === maxScore;
+      const isLoser  = e.jugador === loserJugador;
+      const badge = isWinner ? ' <span class="winner-badge">win</span>'
+                  : isLoser  ? ' <span class="loser-badge">loose</span>'
+                  : '';
       html += `<tr>
         <td>${fecha.split('-').reverse().join('/')}</td>
-        <td>${e.jugador}${isWinner ? ' <span class="winner-badge">win</span>' : ''}</td>
+        <td>${e.jugador}${badge}</td>
         <td>${e.r1}</td><td>${e.r2}</td><td>${e.r3}</td><td>${e.r4}</td><td>${e.r5}</td>
         <td style="color:var(--accent);font-weight:500">${e.score}</td>
       </tr>`;
